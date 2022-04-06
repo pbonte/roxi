@@ -144,12 +144,53 @@ extern crate oxigraph;
         matched_triples
     }
     pub fn convert_to_query(rule : &Rule) -> Query{
-        // use oxigraph::model::NamedNode;
-// use oxigraph::sparql::Query;
-//
-// let query_str = "SELECT ?s ?p ?o WHERE { ?s ?p ?o . }";
-// let mut query = Query::parse(query_str, None)?;
         let body_string:String = rule.body.iter().map(|r| r.to_string()).collect();
         let query_string = format!("CONSTRUCT {{ {} }} WHERE {{ {} }}",rule.head.to_string(), body_string);
         Query::parse(&query_string,None).unwrap()
     }
+
+    pub struct ReasoningStore{
+        pub store: MemoryStore,
+        reasoning_store: MemoryStore,
+        rules: Vec<Rule>,
+        rules_index: RuleIndex
+    }
+impl ReasoningStore {
+    pub fn new() -> ReasoningStore{
+        ReasoningStore{store: MemoryStore::new(), reasoning_store: MemoryStore::new(),
+            rules:Vec::new(), rules_index: RuleIndex::new()}
+    }
+    pub fn add_rule(&mut self,rule:Rule){
+        self.rules.push(rule.clone());
+        self.rules_index.add(rule.clone());
+    }
+    pub fn materialize(&self) {
+        let mut tripe_queue: Vec<Quad> = self.store.iter().collect();
+        // iterate over all triples
+        let mut queue_iter = 0;
+        while queue_iter < tripe_queue.len() {
+            let mut temp_triples = Vec::new();
+            let quad = tripe_queue.get(queue_iter).unwrap();
+            if !self.reasoning_store.contains(quad) {
+                self.reasoning_store.insert(quad.clone());
+
+                //let matched_rules = find_rule_match(&quad, &rules); // without indexing
+                let matched_rules = self.rules_index.find_match(&quad);
+                // find matching rules
+                for matched_rule in matched_rules.into_iter() {
+                    let q = convert_to_query(matched_rule);
+                    if let QueryResults::Graph(solutions) = self.reasoning_store.query(q).unwrap() {
+                        for sol in solutions.into_iter() {
+                            match sol {
+                                Ok(s) => temp_triples.push(Quad::new(s.subject.clone(), s.predicate.clone(), s.object.clone(), None)),
+                                _ => (),
+                            }
+                        }
+                    }
+                }
+            }
+            queue_iter += 1;
+            temp_triples.iter().for_each(|t| tripe_queue.push(t.clone()));
+        }
+    }
+}
