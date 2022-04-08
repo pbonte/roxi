@@ -1,24 +1,23 @@
 extern crate oxigraph;
 
 pub mod reasoningstore;
-
 use oxigraph::model::*;
 use oxigraph::sparql::{QueryResults};
 use oxigraph::io::{GraphFormat, DatasetFormat};
 use oxigraph::model::NamedNode;
-use reasoningstore::{
-    ReasonerTriple,
-    Rule,
-    ReasoningStore
-};
+use reasoningstore::ReasoningStore;
 use std::fs::File;
 use std::io::BufReader;
+use std::rc::Rc;
+use crate::reasoningstore::rule::Rule;
+use crate::reasoningstore::triple::ReasonerTriple;
+
 
 fn main(){
     let timer = ::std::time::Instant::now();
 
 
-    let f = File::open("/Users/psbonte/Downloads/challenge/tbox_min.ttl").unwrap();
+    let f = File::open("/Users/psbonte/Downloads/challenge/tbox.ttl").unwrap();
     let mut reader = BufReader::new(f);
 
     let f2 = File::open("/Users/psbonte/Downloads/challenge/abox.ttl").unwrap();
@@ -80,7 +79,7 @@ fn test_main() {
         let body = ReasonerTriple { s: NamedOrBlankNode::from(BlankNode::new("s").unwrap()), p: NamedOrBlankNode::from(NamedNode::new("http://rdf/type").unwrap()), o: NamedOrBlankNode::from(NamedNode::new(format!("http://test.com/C{}",(i-1))).unwrap()) };
         let mut body_rules = Vec::new();
         body_rules.push(body);
-        let rule = Rule { body: body_rules, head: head };
+        let rule = Rc::new(Rule { body: body_rules, head: head });
         reasoning_store.add_rule(rule.clone());
 
     }
