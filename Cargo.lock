@@ -8,6 +8,8 @@ version = "0.1.0"
 dependencies = [
  "datafrog",
  "oxigraph",
+ "rio_api 0.7.1",
+ "rio_turtle 0.7.1",
 ]
 
 [[package]]
@@ -318,13 +320,13 @@ dependencies = [
  "md-5",
  "nom",
  "oxilangtag",
- "oxiri",
+ "oxiri 0.1.1",
  "peg",
  "quick-xml",
  "rand",
  "regex",
- "rio_api",
- "rio_turtle",
+ "rio_api 0.5.3",
+ "rio_turtle 0.5.3",
  "rio_xml",
  "sha-1",
  "sha2",
@@ -342,6 +344,12 @@ name = "oxiri"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8e54fb37480ffa01a9af93f991ba229b3091f2e6ac84c8f6df2c509356cc473"
+
+[[package]]
+name = "oxiri"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb175ec8981211357b7b379869c2f8d555881c55ea62311428ec0de46d89bd5c"
 
 [[package]]
 name = "peg"
@@ -473,14 +481,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fc78f8e9a7f81c2ac5670a0740086e8d61ab9377d07d01ebf65f7ff13bab7e0"
 
 [[package]]
+name = "rio_api"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f6196ea9fb6791ce3dcd1cfc0d7f1074972aec0572db73dfb7396fcd9c3bc76"
+
+[[package]]
 name = "rio_turtle"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b86d09c32fdf8768cb5973be607eb88edabbd6cdfd6d09fd39431e426404b3dc"
 dependencies = [
  "oxilangtag",
- "oxiri",
- "rio_api",
+ "oxiri 0.1.1",
+ "rio_api 0.5.3",
+]
+
+[[package]]
+name = "rio_turtle"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eefbe56cb005507d4517649f5d113b874e29b8559a7b7a263655aeb81570246c"
+dependencies = [
+ "oxilangtag",
+ "oxiri 0.2.2",
+ "rio_api 0.7.1",
 ]
 
 [[package]]
@@ -490,9 +515,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "049a0a2e286745b9dd0de80765b1e671917f658429a5790e1c6e2097ccc18539"
 dependencies = [
  "oxilangtag",
- "oxiri",
+ "oxiri 0.1.1",
  "quick-xml",
- "rio_api",
+ "rio_api 0.5.3",
 ]
 
 [[package]]

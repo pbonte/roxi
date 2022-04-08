@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 oxigraph = "0.2.5"
 datafrog = "2.0.1"
+rio_turtle = "0.7.1"
+rio_api = "0.7.1"

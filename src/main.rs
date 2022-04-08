@@ -2,22 +2,63 @@ extern crate oxigraph;
 
 pub mod reasoningstore;
 
-use oxigraph::MemoryStore;
 use oxigraph::model::*;
 use oxigraph::sparql::{QueryResults};
-use oxigraph::io::GraphFormat;
-use std::collections::HashMap;
+use oxigraph::io::{GraphFormat, DatasetFormat};
 use oxigraph::model::NamedNode;
-
 use reasoningstore::{
-    RuleIndex,
     ReasonerTriple,
     Rule,
-    convert_to_query,
     ReasoningStore
 };
+use std::fs::File;
+use std::io::BufReader;
 
-fn main() {
+fn main(){
+    let timer = ::std::time::Instant::now();
+
+
+    let f = File::open("/Users/psbonte/Downloads/challenge/tbox_min.ttl").unwrap();
+    let mut reader = BufReader::new(f);
+
+    let f2 = File::open("/Users/psbonte/Downloads/challenge/abox.ttl").unwrap();
+    let mut reader2 = BufReader::new(f2);
+
+    println!("Loading data");
+    let mut reasoning_store = ReasoningStore::new();
+    let timer = ::std::time::Instant::now();
+    let result = reasoning_store.load_tbox(reader);
+    let result2 = reasoning_store.load_abox(reader2);
+    println!("Data Loaded");
+    let elapsed = timer.elapsed();
+
+    println!("Elapsed: {:.2?}", elapsed);
+
+    println!("{}",reasoning_store.len_abox());
+    println!("{}",reasoning_store.len_rules());
+
+    println!("Starting materialization");
+    let timer2 = ::std::time::Instant::now();
+    reasoning_store.materialize();
+    let elapsed2 = timer2.elapsed();
+    println!("Elapsed: {:.2?}", elapsed2);
+//SPARQL query
+    if let QueryResults::Solutions( solutions) =  reasoning_store.reasoning_store.query("SELECT * WHERE { <http://example.com/condition0> a ?type }").unwrap() {
+        //let re = extract_value(solutions);
+        //assert_eq!(solutions.next().unwrap().unwrap().get("s"), Some(&ex.into()));
+        for sol in solutions.into_iter(){
+            match sol{
+                Ok(s) =>print!("{} \n", s.get("type").unwrap()),
+                Err(_) =>print!("error"),
+            }
+
+        }
+        //print!("{}", solutions.next().unwrap().unwrap().get("s").unwrap());
+    }
+    println!("{}",reasoning_store.reasoning_store.len());
+}
+
+fn test_main() {
     let mut reasoning_store = ReasoningStore::new();
     let timer = ::std::time::Instant::now();
 
