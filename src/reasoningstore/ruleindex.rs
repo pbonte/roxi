@@ -15,7 +15,8 @@ pub struct RuleIndex {
 
 impl RuleIndex {
     pub fn len(&self) -> usize {
-        self.spo.len()
+        self.spo.len() + self.s.len() + self.o.len() + self.p.len() +
+            self.sp.len() + self.po.len() + self.so.len()
     }
 }
 

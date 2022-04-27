@@ -1,79 +1,62 @@
 extern crate oxigraph;
+
 pub mod triple;
 pub mod ruleindex;
 pub mod rule;
-    use oxigraph::MemoryStore;
-    use oxigraph::model::*;
-    use oxigraph::sparql::{QueryResults, Query};
-    use oxigraph::io::{ DatasetFormat};
-    use oxigraph::model::NamedOrBlankNode;
-    use rio_turtle::{TurtleParser, TurtleError};
-    use rio_api::parser::TriplesParser;
-    use std::io::BufRead;
-    use std::io;
+
+use oxigraph::MemoryStore;
+use oxigraph::model::*;
+use oxigraph::sparql::{QueryResults, Query};
+use oxigraph::io::{DatasetFormat};
+use oxigraph::model::NamedOrBlankNode;
+use rio_turtle::{TurtleParser, TurtleError};
+use rio_api::parser::TriplesParser;
+use std::io::BufRead;
+use std::io;
 use std::rc::Rc;
 
 use triple::ReasonerTriple;
 use crate::reasoningstore::rule::Rule;
 use crate::reasoningstore::ruleindex::RuleIndex;
+use crate::n3_parser::parse;
+
+pub struct ReasoningStore {
+    pub store: MemoryStore,
+    pub(crate) reasoning_store: MemoryStore,
+    rules: Vec<Rc<Rule>>,
+    rules_index: RuleIndex,
+}
 
 
-fn find_rule_match<'a>(quad:&'a Quad, rules: &'a Vec<Rule>) -> Vec<&'a Rule>{
-        let mut matched_triples: Vec<&Rule> = Vec::new();
-        for rule in rules.iter(){
-            for ReasonerTriple{s ,p,o}  in rule.body.iter(){
-                let mut match_triple = true;
+pub fn convert_to_query(rule: &Rule) -> Query {
+    let body_string: String = rule.body.iter().map(|r| r.to_string()).collect();
+    let query_string = format!("CONSTRUCT {{ {} }} WHERE {{ {} }}", rule.head.to_string(), body_string);
+    Query::parse(&query_string, None).unwrap()
+}
 
-                match s{
-                    NamedOrBlankNode::NamedNode(node_iri) if !quad.subject.to_string().eq(&node_iri.to_string())=> match_triple=false,
-                    _ => match_triple = true,
-                }
-                match p{
-                    NamedOrBlankNode::NamedNode(node_iri) if !quad.predicate.to_string().eq(&node_iri.to_string())=> match_triple=false,
-                    _ => match_triple = true,
-                }
-                match o{
-                    NamedOrBlankNode::NamedNode(node_iri) if !quad.object.to_string().eq(&node_iri.to_string())=>  match_triple=false,
-                    _ => match_triple = true,
-                }
-                if match_triple {
-                    matched_triples.push(rule);
-                }
-            }
-        }
-        matched_triples
-    }
-    pub fn convert_to_query(rule : &Rule) -> Query{
-        let body_string:String = rule.body.iter().map(|r| r.to_string()).collect();
-        let query_string = format!("CONSTRUCT {{ {} }} WHERE {{ {} }}",rule.head.to_string(), body_string);
-        Query::parse(&query_string,None).unwrap()
-    }
 
-    pub struct ReasoningStore{
-        pub store: MemoryStore,
-        pub(crate) reasoning_store: MemoryStore,
-        rules: Vec<Rc<Rule>>,
-        rules_index: RuleIndex
-    }
 impl ReasoningStore {
-    pub fn new() -> ReasoningStore{
-        ReasoningStore{store: MemoryStore::new(), reasoning_store: MemoryStore::new(),
-            rules:Vec::new(), rules_index: RuleIndex::new()}
+    pub fn new() -> ReasoningStore {
+        ReasoningStore {
+            store: MemoryStore::new(),
+            reasoning_store: MemoryStore::new(),
+            rules: Vec::new(),
+            rules_index: RuleIndex::new(),
+        }
     }
-    pub fn load_abox(&self, reader: impl BufRead)-> Result<(), io::Error>{
-        self.store.load_dataset(reader,DatasetFormat::TriG, None)
+    pub fn load_abox(&self, reader: impl BufRead) -> Result<(), io::Error> {
+        self.store.load_dataset(reader, DatasetFormat::TriG, None)
     }
-    pub fn load_tbox(&mut self, reader: impl BufRead){
+    pub fn load_tbox(&mut self, reader: impl BufRead) {
         let rdf_subclass = String::from("<http://www.w3.org/2000/01/rdf-schema#subClassOf>");
         TurtleParser::new(reader, None).parse_all(&mut |triple| {
-
-            if triple.predicate.to_string().eq(&rdf_subclass){
+            if triple.predicate.to_string().eq(&rdf_subclass) {
                 let str_len = triple.object.to_string().len();
-                let object_str =  &triple.object.to_string()[1..str_len-1];
+                let object_str = &triple.object.to_string()[1..str_len - 1];
                 let str_len = triple.subject.to_string().len();
-                let subject_str =  &triple.subject.to_string()[1..str_len-1];
-                if let Ok(named_subject) = NamedNode::new(subject_str){
-                    let body = ReasonerTriple { s: NamedOrBlankNode::from(BlankNode::new("s").unwrap()), p: NamedOrBlankNode::from(NamedNode::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap()), o:  NamedOrBlankNode::from(named_subject)};
+                let subject_str = &triple.subject.to_string()[1..str_len - 1];
+                if let Ok(named_subject) = NamedNode::new(subject_str) {
+                    let body = ReasonerTriple { s: NamedOrBlankNode::from(BlankNode::new("s").unwrap()), p: NamedOrBlankNode::from(NamedNode::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap()), o: NamedOrBlankNode::from(named_subject) };
                     if let Ok(named) = NamedNode::new(object_str) {
                         let head = ReasonerTriple { s: NamedOrBlankNode::from(BlankNode::new("s").unwrap()), p: NamedOrBlankNode::from(NamedNode::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap()), o: NamedOrBlankNode::from(named) };
                         let mut body_rules = Vec::new();
@@ -85,19 +68,25 @@ impl ReasoningStore {
             }
             Ok(()) as Result<(), TurtleError>
         }).unwrap();
-
     }
-    pub fn len_rules(&self) -> usize{
+    pub fn parse_and_add_rule(&mut self, parse_string: &str){
+        let rules_results = parse(parse_string);
+        if let Ok(rules) = rules_results{
+            rules.into_iter().for_each(|r| self.add_rule(Rc::new(r)));
+        }
+    }
+    pub fn len_rules(&self) -> usize {
         self.rules_index.len()
     }
-    pub fn len_abox(&self) -> usize{
+    pub fn len_abox(&self) -> usize {
         self.store.len()
     }
-    pub fn add_rule(&mut self,rule:Rc<Rule>){
+    pub fn add_rule(&mut self, rule: Rc<Rule>) {
         self.rules.push(rule.clone());
         self.rules_index.add(rule.clone());
     }
-    pub fn materialize(&self) {
+    pub fn materialize(&mut self) {
+        self.reasoning_store.clear();
         let mut tripe_queue: Vec<Quad> = self.store.iter().collect();
         // iterate over all triples
         let mut queue_iter = 0;
@@ -106,7 +95,7 @@ impl ReasoningStore {
             let quad = tripe_queue.get(queue_iter).unwrap();
             if !self.reasoning_store.contains(quad) {
                 self.reasoning_store.insert(quad.clone());
-
+                self.store.insert(quad.clone());
                 //let matched_rules = find_rule_match(&quad, &rules); // without indexing
                 let matched_rules = self.rules_index.find_match(&quad);
                 // find matching rules
@@ -126,4 +115,72 @@ impl ReasoningStore {
             temp_triples.iter().for_each(|t| tripe_queue.push(t.clone()));
         }
     }
+
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_abox() {
+        let store = ReasoningStore::new();
+        store.load_abox( b"<http://example2.com/a> <http://rdf/type> <http://test.com/C1> .".as_ref());
+        assert_eq!(store.len_abox(), 1);
+    }
+
+    #[test]
+    fn test_add_rule() {
+        let mut store = ReasoningStore::new();
+        store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n{?VaRr0 <http://test.be/pieter> ?lastVar. ?VaRr0 test:type ?lastVar.}=>{?VaRr0 test:hasValue ?lastVar.}");
+        assert_eq!(store.len_rules(), 1);
+    }
+    #[test]
+    fn test_single_rule() {
+        let mut store = ReasoningStore::new();
+        store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n {?s rdf:type test:SubClass. }=>{?s rdf:type test:SuperType.}");
+        store.load_abox( b"<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .".as_ref());
+        assert_eq!(store.len_abox(), 1);
+        store.materialize();
+        assert_eq!(store.len_abox(), 2);
+        let quad_ref = QuadRef::new(NamedNodeRef::new("http://example2.com/a").unwrap(),
+                                            NamedNodeRef::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap(),
+                                            NamedNodeRef::new("http://www.test.be/test#SuperType").unwrap(), None);
+        assert!(store.store.contains(quad_ref));
+    }
+
+    #[test]
+    fn test_join_rule() {
+        let mut store = ReasoningStore::new();
+        store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n {?s rdf:type test:SubClass. ?s test:hasRef ?o.}=>{?s rdf:type test:SuperType.}");
+        store.load_abox( b"<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .".as_ref());
+        store.load_abox( b"<http://example2.com/a> <http://www.test.be/test#hasRef> <http://example2.com/b> .".as_ref());
+
+        assert_eq!(store.len_abox(), 2);
+        store.materialize();
+        assert_eq!(store.len_abox(), 3);
+        let quad_ref = QuadRef::new(NamedNodeRef::new("http://example2.com/a").unwrap(),
+                                    NamedNodeRef::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap(),
+                                    NamedNodeRef::new("http://www.test.be/test#SuperType").unwrap(), None);
+        assert!(store.store.contains(quad_ref));
+    }
+    #[test]
+    fn test_long_join_rule() {
+        let mut store = ReasoningStore::new();
+        store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n {?s rdf:type test:SubClass. ?s test:hasRef ?o. ?o test:hasRef ?o2. ?o2 rdf:type test:SubClass.}=>{?s rdf:type test:SuperType.}");
+        store.load_abox( b"<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .".as_ref());
+        store.load_abox( b"<http://example2.com/b> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .".as_ref());
+        store.load_abox( b"<http://example2.com/c> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .".as_ref());
+        store.load_abox( b"<http://example2.com/a> <http://www.test.be/test#hasRef> <http://example2.com/b> .".as_ref());
+        store.load_abox( b"<http://example2.com/b> <http://www.test.be/test#hasRef> <http://example2.com/c> .".as_ref());
+
+        assert_eq!(store.len_abox(), 5);
+        store.materialize();
+        assert_eq!(store.len_abox(), 6);
+        let quad_ref = QuadRef::new(NamedNodeRef::new("http://example2.com/a").unwrap(),
+                                    NamedNodeRef::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap(),
+                                    NamedNodeRef::new("http://www.test.be/test#SuperType").unwrap(), None);
+        assert!(store.store.contains(quad_ref));
+    }
+
 }

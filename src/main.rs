@@ -1,152 +1,76 @@
 extern crate oxigraph;
+extern crate pest;
+#[macro_use]
+extern crate pest_derive;
 
 pub mod reasoningstore;
-use oxigraph::model::*;
+mod n3_parser;
+
 use oxigraph::sparql::{QueryResults};
-use oxigraph::io::{GraphFormat, DatasetFormat};
-use oxigraph::model::NamedNode;
 use reasoningstore::ReasoningStore;
 use std::fs::File;
 use std::io::BufReader;
-use std::rc::Rc;
-use crate::reasoningstore::rule::Rule;
-use crate::reasoningstore::triple::ReasonerTriple;
+use clap::Parser;
 
+
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// File path to the ABox (in TTL format)
+    #[clap(short, long)]
+    abox: String,
+
+    /// File path to the TBox (in TTL format)
+    #[clap(short, long)]
+    tbox: String,
+
+    /// SPARQL query to be executed
+    #[clap(short, long)]
+    query: String,
+}
 
 fn main(){
+    let rules = n3_parser::parse("@prefix log: <http://www.w3.org/2000/10/swap/log#>.\n{?VaRr0 rdf:type ?lastVar. ?VaRr0 rdf:type ?lastVar.}=>{?VaRr0 ssn:HasValue ?lastVar.}");
+    println!("{:?}",rules);
+}
+
+fn main_old() {
+    let args = Args::parse();
+
     let timer = ::std::time::Instant::now();
 
+    let f = File::open(args.abox).unwrap();
+    let reader = BufReader::new(f);
+    let f2 = File::open(args.tbox).unwrap();
+    let reader2 = BufReader::new(f2);
 
-    let f = File::open("/Users/psbonte/Downloads/challenge/tbox.ttl").unwrap();
-    let mut reader = BufReader::new(f);
-
-    let f2 = File::open("/Users/psbonte/Downloads/challenge/abox.ttl").unwrap();
-    let mut reader2 = BufReader::new(f2);
-
-    println!("Loading data");
+    println!("Loading data ABox and TBox");
     let mut reasoning_store = ReasoningStore::new();
-    let timer = ::std::time::Instant::now();
-    let result = reasoning_store.load_tbox(reader);
-    let result2 = reasoning_store.load_abox(reader2);
-    println!("Data Loaded");
+    reasoning_store.load_tbox(reader2);
+    reasoning_store.load_abox(reader);
     let elapsed = timer.elapsed();
 
-    println!("Elapsed: {:.2?}", elapsed);
+    println!("Data Loaded in: {:.2?}", elapsed);
 
-    println!("{}",reasoning_store.len_abox());
-    println!("{}",reasoning_store.len_rules());
+    println!("ABox Size: {}", reasoning_store.len_abox());
 
     println!("Starting materialization");
     let timer2 = ::std::time::Instant::now();
     reasoning_store.materialize();
     let elapsed2 = timer2.elapsed();
-    println!("Elapsed: {:.2?}", elapsed2);
+    println!("Materialization Time: {:.2?}", elapsed2);
 //SPARQL query
-    if let QueryResults::Solutions( solutions) =  reasoning_store.reasoning_store.query("SELECT * WHERE { <http://example.com/condition0> a ?type }").unwrap() {
-        //let re = extract_value(solutions);
-        //assert_eq!(solutions.next().unwrap().unwrap().get("s"), Some(&ex.into()));
-        for sol in solutions.into_iter(){
-            match sol{
-                Ok(s) =>print!("{} \n", s.get("type").unwrap()),
-                Err(_) =>print!("error"),
+    let q2: String = args.query;
+
+    println!("Results for query: {}:", q2);
+    if let QueryResults::Solutions(solutions) = reasoning_store.reasoning_store.query(&q2).unwrap() {
+        for sol in solutions.into_iter() {
+            match sol {
+                Ok(s) => s.iter().for_each(|b| println!("{:?}", b)),
+                Err(_) => print!("error"),
             }
-
         }
-        //print!("{}", solutions.next().unwrap().unwrap().get("s").unwrap());
     }
-    println!("{}",reasoning_store.reasoning_store.len());
+    println!("Size Materialized Store: {}", reasoning_store.reasoning_store.len());
 }
 
-fn test_main() {
-    let mut reasoning_store = ReasoningStore::new();
-    let timer = ::std::time::Instant::now();
-
-// insertion
-    let ex = NamedNode::new("http://example.com").unwrap();
-    let quad = Quad::new(ex.clone(), ex.clone(), ex.clone(), None);
-    reasoning_store.store.insert(quad.clone());
-    // insertion
-    let file = b"<http://example2.com/a> <http://rdf/type> <http://test.com/C1> .";
-    reasoning_store.store.load_graph(file.as_ref(), GraphFormat::NTriples, &GraphName::DefaultGraph, None).unwrap();
-    let file2 = b"<http://example2.com/b> <http://rdf/type> <http://test.com/C0> .";
-
-    reasoning_store.store.load_graph(file2.as_ref(), GraphFormat::NTriples, &GraphName::DefaultGraph, None).unwrap();
-
-    let b = BlankNode::new("s").unwrap();
-    for i in 1..1000 {
-        let head = ReasonerTriple { s: NamedOrBlankNode::from(BlankNode::new("s").unwrap()), p: NamedOrBlankNode::from(NamedNode::new("http://rdf/type").unwrap()), o: NamedOrBlankNode::from(NamedNode::new(format!("http://test.com/C{}",i)).unwrap()) };
-        //println!("{}", head.to_string());
-        let body = ReasonerTriple { s: NamedOrBlankNode::from(BlankNode::new("s").unwrap()), p: NamedOrBlankNode::from(NamedNode::new("http://rdf/type").unwrap()), o: NamedOrBlankNode::from(NamedNode::new(format!("http://test.com/C{}",(i-1))).unwrap()) };
-        let mut body_rules = Vec::new();
-        body_rules.push(body);
-        let rule = Rc::new(Rule { body: body_rules, head: head });
-        reasoning_store.add_rule(rule.clone());
-
-    }
-    println!("Done adding");
-    reasoning_store.materialize();
-    let elapsed = timer.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
-
-// quad filter
-    let results: Vec<Quad> = reasoning_store.store.quads_for_pattern(Some(ex.as_ref().into()), None, None, None).collect();
-    assert_eq!(vec![quad], results);
-
-
-//SPARQL query
-//     if let QueryResults::Solutions( solutions) =  reasoning_store.query("SELECT * WHERE { ?s ?p ?o }").unwrap() {
-//         //let re = extract_value(solutions);
-//         //assert_eq!(solutions.next().unwrap().unwrap().get("s"), Some(&ex.into()));
-//         for sol in solutions.into_iter(){
-//             match sol{
-//                 Ok(s) =>print!("{} {} {}\n", s.get("s").unwrap(),s.get("p").unwrap(),s.get("o").unwrap()),
-//                 Err(_) =>print!("error"),
-//             }
-//
-//         }
-//         //print!("{}", solutions.next().unwrap().unwrap().get("s").unwrap());
-//     }
-}
-// extern crate oxigraph;
-//
-// use oxigraph::MemoryStore;
-// use oxigraph::model::*;
-// use oxigraph::sparql::{QueryResults};
-// use oxigraph::io::GraphFormat;
-//
-//
-// // fn extract_value(mut solutions:QuerySolutionIter ) ->Option<&'static Term>{
-// //     solutions.next().and_then(|s| s.and_then(|e| Ok(e.get("s"))))
-// // }
-// fn main()  {
-//
-//     let store = MemoryStore::new();
-//
-// // insertion
-//     let ex = NamedNode::new("http://example.com").unwrap();
-//     let quad = Quad::new(ex.clone(), ex.clone(), ex.clone(), None);
-//     store.insert(quad.clone());
-//     // insertion
-//     let file = b"<http://example2.com> <http://example2.com> <http://example2.com> .";
-//     store.load_graph(file.as_ref(), GraphFormat::NTriples, &GraphName::DefaultGraph, None).unwrap();
-//
-// // quad filter
-//     let results: Vec<Quad> = store.quads_for_pattern(Some(ex.as_ref().into()), None, None, None).collect();
-//     assert_eq!(vec![quad], results);
-//
-//
-// // SPARQL query
-//     if let QueryResults::Solutions( solutions) =  store.query("SELECT * WHERE { ?s ?p ?o }").unwrap() {
-//         //let re = extract_value(solutions);
-//         //assert_eq!(solutions.next().unwrap().unwrap().get("s"), Some(&ex.into()));
-//         for sol in solutions.into_iter(){
-//             match sol{
-//                 Ok(s) =>print!("{} {} {}\n", s.get("s").unwrap(),s.get("p").unwrap(),s.get("o").unwrap()),
-//                 Err(_) =>print!("error"),
-//             }
-//
-//         }
-//         //print!("{}", solutions.next().unwrap().unwrap().get("s").unwrap());
-//     }
-//
-// }
