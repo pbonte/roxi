@@ -3,7 +3,8 @@ extern crate oxigraph;
 pub mod triple;
 pub mod ruleindex;
 pub mod rule;
-
+pub mod binding;
+use std::collections::HashMap;
 use oxigraph::MemoryStore;
 use oxigraph::model::*;
 use oxigraph::sparql::{QueryResults, Query};
@@ -19,12 +20,51 @@ use triple::ReasonerTriple;
 use crate::reasoningstore::rule::Rule;
 use crate::reasoningstore::ruleindex::RuleIndex;
 use crate::n3_parser::parse;
+use crate::reasoningstore::binding::Binding;
+
 
 pub struct ReasoningStore {
     pub store: MemoryStore,
     pub(crate) reasoning_store: MemoryStore,
     rules: Vec<Rc<Rule>>,
     rules_index: RuleIndex,
+}
+
+
+
+impl ReasoningStore {
+    fn eval_triple_element(&self, left: &NamedOrBlankNode, right:&NamedOrBlankNode) -> bool{
+        if left.is_blank_node() && right.is_blank_node(){
+            true
+        }else{
+            left.eq(right)
+        }
+    }
+    pub(crate) fn find_subrules(&self, rule_head: &ReasonerTriple) -> Vec<Rc<Rule>> {
+        let mut rule_matches = Vec::new();
+        for rule in self.rules.iter(){
+            let head:&ReasonerTriple = &rule.head;
+            if self.eval_triple_element(&head.s,&rule_head.s) &&
+                self.eval_triple_element(&head.p,&rule_head.p) &&
+                self.eval_triple_element(&head.o,&rule_head.o) {
+                rule_matches.push(rule.clone());
+            }
+        }
+        rule_matches
+    }
+    pub(crate) fn eval_rule_atom(&self, rule_atom: &ReasonerTriple) -> Binding{
+        let query_string = format!("Select *  WHERE {{ {} }}", rule_atom.to_string());
+        let mut bindings = Binding::new();
+        if let QueryResults::Solutions(mut solutions) = self.store.query(&query_string).unwrap() {
+            for sol in solutions.into_iter() {
+                match sol {
+                    Ok(s) => s.iter().for_each(|b| bindings.add(b.0.as_str(),b.1.clone())),
+                    Err(_) => print!("error"),
+                }
+            }
+        }
+        bindings
+    }
 }
 
 
@@ -76,7 +116,7 @@ impl ReasoningStore {
         }
     }
     pub fn len_rules(&self) -> usize {
-        self.rules_index.len()
+        self.rules.len()
     }
     pub fn len_abox(&self) -> usize {
         self.store.len()
@@ -182,5 +222,47 @@ mod tests {
                                     NamedNodeRef::new("http://www.test.be/test#SuperType").unwrap(), None);
         assert!(store.store.contains(quad_ref));
     }
+
+    #[test]
+    fn test_find_backward_rules(){
+        let mut store = ReasoningStore::new();
+        store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n \
+        {?s rdf:type test:SubClass. ?s test:hasRef ?o. ?o test:hasRef ?o2. ?o2 rdf:type test:SubClass.}=>{?s rdf:type test:SuperType.}");
+        //match
+        let backward_head = ReasonerTriple::new("?s".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperType".to_string());
+        let sub_rules : Vec<Rc<Rule>> = store.find_subrules(&backward_head);
+        assert_eq!(sub_rules.len(), 1);
+        // no match
+        let backward_head = ReasonerTriple::new("?s".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperTypeNotFound".to_string());
+        let sub_rules : Vec<Rc<Rule>> = store.find_subrules(&backward_head);
+        assert_eq!(sub_rules.len(), 0);
+    }
+    #[test]
+    fn test_find_backward_rules_with_diff_var_names(){
+        let mut store = ReasoningStore::new();
+        store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n \
+        {?s rdf:type test:SubClass. ?s test:hasRef ?o. ?o test:hasRef ?o2. ?o2 rdf:type test:SubClass.}=>{?s rdf:type test:SuperType.}");
+        // diff variable names
+        let backward_head = ReasonerTriple::new("?newVar".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperType".to_string());
+        let sub_rules : Vec<Rc<Rule>> = store.find_subrules(&backward_head);
+        assert_eq!(sub_rules.len(), 1);
+    }
+
+
+
+    #[test]
+    fn test_eval_rule_atom(){
+        let mut store = ReasoningStore::new();
+        store.load_abox( b"<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .".as_ref());
+
+        let rule_atom = ReasonerTriple::new("?s".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SubClass".to_string());
+        let result_bindings = store.eval_rule_atom(&rule_atom);
+        let mut binding: Binding = Binding::new();
+        binding.add("s", Term::from(NamedNode::new("http://example2.com/a".to_string()).unwrap()));
+        assert_eq!(binding, result_bindings);
+
+    }
+
+
 
 }

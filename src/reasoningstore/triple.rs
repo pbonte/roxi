@@ -36,7 +36,7 @@ impl PrefixMapper{
         }
     }
 }
-#[derive(Debug,  Clone)]
+#[derive(Debug,  Clone, Eq, PartialEq)]
 pub struct ReasonerTriple{
     pub s: NamedOrBlankNode,
     pub p: NamedOrBlankNode,
