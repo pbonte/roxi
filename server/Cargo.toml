@@ -1,0 +1,14 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "3.1.8", features = ["derive"] }
+pest = "2.0"
+pest_derive = "2.0"
+roxi = { version = "0.0.1", path = "../lib" }
+oxigraph = "0.3.2"
+
