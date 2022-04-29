@@ -84,6 +84,5 @@ Object = { Term | Var}
 TP = { WS*~Subject ~WS+~ Property ~WS+~ Object ~WS* ~"."? ~WS* }
 Body = {"{"~TP+~"}"}
 Head = {"{"~WS*~TP~WS*~"}"}
-rule = { Body~WS*~"=>"~WS*~Head }
-rules = {rule*}
+rule = { Body~WS*~"=>"~WS*~Head ~WS*}
 document = {Prefix* ~ NewLine* ~rule+}

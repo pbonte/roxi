@@ -113,4 +113,10 @@ mod tests {
         println!("{:?}",rules);
         assert_eq!(rules.get(0).unwrap().body.len(), 2);
     }
+    #[test]
+    fn parse_multiple_rules() {
+        let rules = parse("@prefix log: <http://www.w3.org/2000/10/swap/log#>.\n @prefix log2: <http://www.w3.org/2000/10/swap/log2#>.\n {?VaRr0 <http://test.be/pieter> ?lastVar. ?VaRr0 log:type ?lastVar.}=>{?VaRr0 ssn:HasValue ?lastVar.}\n{?s <http://test.be/pieter> ?o.}=>{?s ssn:HasValue ?o.}").unwrap();
+        println!("{:?}",rules);
+        assert_eq!(rules.len(), 2);
+    }
 }

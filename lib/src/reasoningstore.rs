@@ -7,7 +7,7 @@ pub mod rule;
 use oxigraph::store::{LoaderError, Store};
 use oxigraph::model::*;
 use oxigraph::sparql::{QueryResults, Query};
-use oxigraph::io::{DatasetFormat};
+use oxigraph::io::{DatasetFormat, GraphFormat};
 use oxigraph::model::NamedOrBlankNode;
 use rio_turtle::{TurtleParser, TurtleError};
 use rio_api::parser::TriplesParser;
@@ -115,11 +115,19 @@ impl ReasoningStore {
             temp_triples.iter().for_each(|t| tripe_queue.push(t.clone()));
         }
     }
+    pub fn dump_as_string(&self) -> String {
+        let mut buffer = Vec::new();
+        self.store.dump_graph(&mut buffer, oxigraph::io::GraphFormat::NTriples, GraphNameRef::DefaultGraph).unwrap();
+
+        let dump = String::from_utf8(buffer).unwrap();
+        dump
+    }
 
 }
 
 #[cfg(test)]
 mod tests {
+    use oxigraph::io::GraphFormat;
     use super::*;
 
     #[test]
@@ -196,5 +204,14 @@ mod tests {
                                     NamedNodeRef::new("http://www.test.be/test#SuperType").unwrap(), &GraphName::DefaultGraph);
         assert!(store.store.contains(quad_ref).unwrap());
     }
+    #[test]
+    fn test_string_dump(){
+        let mut store = ReasoningStore::new();
+        store.load_abox( b"<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .".as_ref());
+
+        let dump = store.dump_as_string();
+        assert_eq!("<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .\n",dump);
+    }
+
 
 }
