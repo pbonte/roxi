@@ -11,8 +11,7 @@ How to build Roxi in server mode:
 ```
 cd server
 cargo build --release
-cd ../target/release
-./server --abox <ABOX> --tbox <TBOX> --query <QUERY>
+./target/release/server --abox <ABOX> --tbox <TBOX> --query <QUERY>
 ```
 The following parameters can be defined:
 1. `--abox` file location to abox statements. File in TTL format (.ttl) supported.
