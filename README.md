@@ -41,7 +41,7 @@ This will generate a `pkg` folder. Now you can add RoXi as a dependency in your 
   }
 }
 ```
-Example usages:
+Example usage:
 ```
 import {RoxiReasoner} from "roxi";
 // create the reasoner
