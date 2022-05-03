@@ -4,6 +4,7 @@ Reactive Reasoning on top of [oxigraph](https://github.com/oxigraph/oxigraph)
 
 
 RoXi can be included as a library, run in server mode through CLI or in the browser using web assembly.
+You can try it out in your [own browser](https://pbonte.github.io/roxi/index.html)!
 
 ## RoXi Server
 
