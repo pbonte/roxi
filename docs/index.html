@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Hello wasm-pack!</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+  </head>
+  <body>
+    <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
+    <script src="./bootstrap.js"></script>
+
+    <section class="hero is-small is-info">
+      <div class="hero-body">
+        <p class="title">
+          RoXi
+        </p>
+        <p class="subtitle">
+          Reasoning on Web scale
+        </p>
+      </div>
+    </section>
+    <div class="container">
+      <div class="notification is-light">
+        <label class="label">ABox:</label>
+        <textarea class="textarea is-link" placeholder="Define Abox" id="aboxContent"></textarea>
+        <label class="label">Rules:</label>
+        <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContent"></textarea>
+        <div class="control">
+          <button class="button is-info" id="startReasoning">Materialize</button>
+        </div>
+        <label class="label">Results:</label>
+        <textarea class="textarea is-link" placeholder="Results" id="results"></textarea>
+
+      </div>
+    </div>
+    <footer class="footer">
+      <div class="content has-text-centered">
+        <p>
+          <a  href="https://knows.idlab.ugent.be/"></a><strong>RoXi</strong></a> by <a href="https://knows.idlab.ugent.be/">KNowledge On Web Scale</a> Team. The source code is licensed
+          <a href="http://opensource.org/licenses/mit-license.php">MIT</a>.
+        </p>
+      </div>
+    </footer>
+  </body>
+<script>
+  function clicked(){
+    alert("clicked");
+    materialized();
+  }
+</script>
+</html>
