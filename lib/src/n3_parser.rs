@@ -119,4 +119,11 @@ mod tests {
         println!("{:?}",rules);
         assert_eq!(rules.len(), 2);
     }
+    #[test]
+    fn parse_multiple_rulese_ending_with_dot() {
+        let rules = parse("@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n@prefix : <http://eulersharp.sourceforge.net/2009/12dtb/test#>.\n{?V0 rdf:type :N0} => {?V0 rdf:type :N1}.\n{?V0 rdf:type :N1} => {?V0 rdf:type :N2}.").unwrap();
+        println!("{:?}",rules);
+        assert_eq!(rules.len(), 2);
+
+    }
 }
