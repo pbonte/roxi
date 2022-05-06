@@ -1,0 +1,15 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix : <http://eulersharp.sourceforge.net/2009/12dtb/test#>.
+
+:ind a :N0.
+:N0 rdfs:subClassOf :N1.
+:N0 rdfs:subClassOf :I1.
+:N0 rdfs:subClassOf :J1.
+:N1 rdfs:subClassOf :N2.
+:N1 rdfs:subClassOf :I2.
+:N1 rdfs:subClassOf :J2.
+:N2 rdfs:subClassOf :N3.
+:N2 rdfs:subClassOf :I3.
+:N2 rdfs:subClassOf :J3.
+

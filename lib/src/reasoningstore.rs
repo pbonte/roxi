@@ -1,9 +1,10 @@
 extern crate oxigraph;
-
+extern crate log;
 pub mod triple;
 pub mod ruleindex;
 pub mod rule;
 
+use log::{info, warn, trace};
 use oxigraph::store::{LoaderError, Store};
 use oxigraph::model::*;
 use oxigraph::sparql::{QueryResults, Query};
@@ -94,17 +95,23 @@ impl ReasoningStore {
             let mut temp_triples = Vec::new();
             let quad = tripe_queue.get(queue_iter).unwrap();
             if !self.reasoning_store.contains(quad).unwrap() {
+                trace!("Adding Result: {:?}", quad);
                 self.reasoning_store.insert(quad);
                 self.store.insert(quad);
                 //let matched_rules = find_rule_match(&quad, &rules); // without indexing
                 let matched_rules = self.rules_index.find_match(&quad);
                 // find matching rules
                 for matched_rule in matched_rules.into_iter() {
+                    trace!("Checking Rule: {:?}", matched_rule);
                     let q = convert_to_query(matched_rule);
                     if let QueryResults::Graph(solutions) = self.reasoning_store.query(q).unwrap() {
                         for sol in solutions.into_iter() {
                             match sol {
-                                Ok(s) => temp_triples.push(Quad::new(s.subject.clone(), s.predicate.clone(), s.object.clone(), GraphName::DefaultGraph)),
+                                Ok(s) => {
+                                    let rule_result = Quad::new(s.subject.clone(), s.predicate.clone(), s.object.clone(), GraphName::DefaultGraph);
+                                    trace!("Rule match! Adding: {:?}", rule_result);
+                                    temp_triples.push(rule_result);
+                                },
                                 _ => (),
                             }
                         }
@@ -212,6 +219,28 @@ mod tests {
         let dump = store.dump_as_string();
         assert_eq!("<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .\n",dump);
     }
+    #[test]
+    fn test_convert_and_bind_query(){
+        let mut store = ReasoningStore::new();
+        store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n {?s test:trans ?o. ?o test:trans ?q.} => {?s test:trans ?q.}");
+        store.load_abox( b"<http://example2.com/a> <http://www.test.be/test#trans> <http://example2.com/b> .".as_ref());
+        let rule = store.rules.get(0).unwrap();
+        let fact = store.store.iter().next().unwrap().unwrap();
+        let q  = convert_to_query_with_quad(&rule, &fact, 0);
+        println!("{:?}",q.to_string());
 
+    }
 
+    fn convert_to_query_with_quad(rule: &Rule, quad: &Quad, index: usize) -> Query {
+        let body_string: String = rule.body.iter().enumerate()
+            .map(|(i, r)|
+                {if i != index{
+                    quad.to_string()
+                }
+                else{
+                    r.to_string()
+                }}).collect();
+        let query_string = format!("CONSTRUCT {{ {} }} WHERE {{ {} }}", rule.head.to_string(), body_string);
+        Query::parse(&query_string, None).unwrap()
+    }
 }

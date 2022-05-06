@@ -13,3 +13,4 @@ rio_api = "0.7.1"
 clap = { version = "3.1.8", features = ["derive"] }
 pest = "2.0"
 pest_derive = "2.0"
+log = { version = "0.4"}
