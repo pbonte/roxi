@@ -7,6 +7,7 @@ pub struct Binding{
 }
 
 
+
 impl Binding {
     pub fn new() -> Binding {
         Binding{bindings:HashMap::new()}
@@ -17,6 +18,9 @@ impl Binding {
         }
         let mut binding_values= self.bindings.get_mut(var_name).unwrap();
         binding_values.push(term);
+    }
+    pub(crate) fn contains(&self, key: &str) -> bool {
+       self.bindings.contains_key(key)
     }
     pub fn get(&self, var_name: &str) -> Vec<Term> {
         match self.bindings.get(var_name){

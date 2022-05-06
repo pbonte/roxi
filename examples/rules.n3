@@ -1,0 +1,3 @@
+@prefix test: <http://www.test.be/test#>.
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+{?s rdf:type test:SubClass. }=>{?s rdf:type test:SuperType.}

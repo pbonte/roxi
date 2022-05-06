@@ -1,11 +1,12 @@
 extern crate oxigraph;
-
+extern crate log;
 pub mod triple;
 pub mod ruleindex;
 pub mod rule;
 pub mod binding;
 use std::collections::HashMap;
 
+use log::{info, warn, trace};
 use oxigraph::store::{LoaderError, Store};
 use oxigraph::model::*;
 use oxigraph::sparql::{QueryResults, Query};
@@ -69,13 +70,78 @@ impl ReasoningStore {
 }
 
 
-pub fn convert_to_query(rule: &Rule) -> Query {
-    let body_string: String = rule.body.iter().map(|r| r.to_string()).collect();
-    let query_string = format!("CONSTRUCT {{ {} }} WHERE {{ {} }}", rule.head.to_string(), body_string);
+pub fn convert_to_query(rule: &Rule, quad : &Quad) -> Vec<Query> {
+    if rule.body.len() <= 1 {
+        let body_string: String = rule.body.iter().map(|r| r.to_string()).collect();
+        let query_string = format!("CONSTRUCT {{ {} }} WHERE {{ {} }}", rule.head.to_string(), body_string);
+        Vec::from([Query::parse(&query_string, None).unwrap()])
+    }else{
+        let bindings = extract_binding(rule, quad);
+        let queries: Vec<Query> = bindings.iter()
+            .map(|b|convert_to_query_with_binding(&rule,b)).collect();
+        queries
+    }
+}
+
+fn extract_binding(rule: &Rule, quad: &Quad) -> Vec<Binding> {
+    let mut bindings = Vec::new();
+    for ReasonerTriple{s,p,o} in rule.body.iter(){
+        let mut binding = Binding::new();
+        if s.is_named_node() && !s.to_string().eq(&quad.subject.to_string()){
+            continue;
+        }
+        if p.is_named_node() && !p.to_string().eq(&quad.predicate.to_string()){
+            continue;
+        }
+        if o.is_named_node() && !o.to_string().eq(&quad.object.to_string()){
+            continue;
+        }
+        if let NamedOrBlankNode::BlankNode(s_node) = s{
+            binding.add(s_node.as_str(),Term::from(quad.subject.clone()));
+        }
+        if let NamedOrBlankNode::BlankNode(p_node) = p{
+            binding.add(p_node.as_str(),Term::from(quad.predicate.clone()));
+        }
+        if let NamedOrBlankNode::BlankNode(o_node) = o{
+            binding.add(o_node.as_str(),quad.object.clone());
+        }
+        bindings.push(binding);
+    }
+    bindings
+}
+fn convert_to_query_with_binding(rule: &Rule, binding: &Binding) -> Query {
+    let body_string: String = rule.body.iter()
+        .map(|r|bind(r, binding)).collect();
+    let query_string = format!("CONSTRUCT {{ {} }} WHERE {{ {} }}", bind(&rule.head,binding), body_string);
     Query::parse(&query_string, None).unwrap()
 }
 
+fn bind(r: &ReasonerTriple, bindings: &Binding) -> String {
+    let mut final_string: String = "".to_owned();
+    match &r.s{
+        NamedOrBlankNode::NamedNode(node_iri) => final_string.push_str(&format!(" {} ", node_iri.to_string())),
+        NamedOrBlankNode::BlankNode(var_name) => convert_to_bound_vars(&bindings, &mut final_string, &var_name),
+    }
+    match &r.p{
+        NamedOrBlankNode::NamedNode(node_iri) => final_string.push_str(&format!(" {} ", node_iri.to_string())),
+        NamedOrBlankNode::BlankNode(var_name) => convert_to_bound_vars(&bindings, &mut final_string, &var_name),
+    }
+    match &r.o{
+        NamedOrBlankNode::NamedNode(node_iri) => final_string.push_str(&format!(" {} ", node_iri.to_string())),
+        NamedOrBlankNode::BlankNode(var_name) =>convert_to_bound_vars(&bindings, &mut final_string, &var_name),
+    }
+    final_string.push_str(".");
+    final_string
+}
 
+fn convert_to_bound_vars(bindings: &&Binding, final_string: &mut String, var_name: &&BlankNode) {
+    let key = var_name.as_str();
+    if bindings.contains(key) {
+        final_string.push_str(&format!(" {} ", bindings.get(key).iter().next().unwrap()))
+    } else {
+        final_string.push_str(&format!(" ?{} ", var_name.as_str()))
+    }
+}
 impl ReasoningStore {
     pub fn new() -> ReasoningStore {
         ReasoningStore {
@@ -135,21 +201,29 @@ impl ReasoningStore {
             let mut temp_triples = Vec::new();
             let quad = tripe_queue.get(queue_iter).unwrap();
             if !self.reasoning_store.contains(quad).unwrap() {
+                trace!("Checking fact: {:?}", quad.to_string());
                 self.reasoning_store.insert(quad);
                 self.store.insert(quad);
                 //let matched_rules = find_rule_match(&quad, &rules); // without indexing
                 let matched_rules = self.rules_index.find_match(&quad);
                 // find matching rules
                 for matched_rule in matched_rules.into_iter() {
-                    let q = convert_to_query(matched_rule);
-                    if let QueryResults::Graph(solutions) = self.reasoning_store.query(q).unwrap() {
-                        for sol in solutions.into_iter() {
-                            match sol {
-                                Ok(s) => temp_triples.push(Quad::new(s.subject.clone(), s.predicate.clone(), s.object.clone(), GraphName::DefaultGraph)),
-                                _ => (),
+                    trace!("Checking Rule: {:?}", matched_rule.to_string());
+                    let converted_queries = convert_to_query(matched_rule, quad);
+                    for q in converted_queries {
+                        if let QueryResults::Graph(solutions) = self.reasoning_store.query(q).unwrap() {
+                            for sol in solutions.into_iter() {
+                                match sol {
+                                    Ok(s) => {
+                                        let rule_result = Quad::new(s.subject.clone(), s.predicate.clone(), s.object.clone(), GraphName::DefaultGraph);
+                                        trace!("Rule match! Adding: {:?}", rule_result.to_string());
+                                        temp_triples.push(rule_result);
+                                    },
+                                    _ => (),
+                                }
                             }
                         }
-                    }
+                }
                 }
             }
             queue_iter += 1;
@@ -293,6 +367,44 @@ mod tests {
         assert_eq!(binding, result_bindings);
 
     }
+
+    #[test]
+    fn test_extract_bindings(){
+        let mut store = ReasoningStore::new();
+        store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n {?s test:trans ?o. ?o test:trans ?q.} => {?s test:trans ?q.}");
+        store.load_abox(b"<http://example2.com/a> <http://www.test.be/test#trans> <http://example2.com/b> .".as_ref());
+
+        let rule = store.rules.get(0).unwrap();
+        let fact = store.store.iter().next().unwrap().unwrap();
+        let mut binding: Binding = Binding::new();
+        binding.add("s",Term::from(fact.subject.clone()));
+        binding.add("o",Term::from(fact.object.clone()));
+        let mut binding2: Binding = Binding::new();
+        binding2.add("o",Term::from(fact.subject.clone()));
+        binding2.add("q",Term::from(fact.object.clone()));
+        let mut bindings = Vec::new();
+        bindings.push(binding);
+        bindings.push(binding2);
+        let test_binding = extract_binding(rule, &fact);
+        assert_eq!(bindings,test_binding);
+    }
+    #[test]
+    fn test_convert_and_bind_query() {
+        let mut store = ReasoningStore::new();
+        store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n {?s test:trans ?o. ?o test:trans ?q.} => {?s test:trans ?q.}");
+        store.load_abox(b"<http://example2.com/a> <http://www.test.be/test#trans> <http://example2.com/b> .".as_ref());
+
+        let rule = store.rules.get(0).unwrap();
+        let fact = store.store.iter().next().unwrap().unwrap();
+        let bindings = extract_binding(rule, &fact);
+        let binding = bindings.get(0).unwrap();
+        let q = convert_to_query_with_binding(&rule, binding);
+        let correct_q = Query::parse("CONSTRUCT {  <http://example2.com/a>  <http://www.test.be/test#trans>  ?q . } WHERE {  <http://example2.com/a>  <http://www.test.be/test#trans>  <http://example2.com/b> . <http://example2.com/b>  <http://www.test.be/test#trans>  ?q . }",None).unwrap();
+        assert_eq!(correct_q,q);
+    }
+
+
+
 
 
 }

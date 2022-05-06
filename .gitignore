@@ -1,3 +1,5 @@
+js/web/
+node_modules/
 .idea/
 /target
 .DS_Store

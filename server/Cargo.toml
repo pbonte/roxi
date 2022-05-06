@@ -11,4 +11,5 @@ pest = "2.0"
 pest_derive = "2.0"
 roxi = { version = "0.1.0", path = "../lib" }
 oxigraph = "0.3.2"
+env_logger = "0.9.0"
 

@@ -4,12 +4,14 @@ extern crate pest;
 extern crate pest_derive;
 
 extern crate roxi;
+extern crate env_logger;
 
 use oxigraph::sparql::{QueryResults};
 use roxi::reasoningstore::ReasoningStore;
 use std::fs::{File, read_to_string};
 use std::io::{BufReader, Read};
 use clap::Parser;
+use env_logger::Env;
 
 
 #[derive(Parser, Debug)]
@@ -26,6 +28,10 @@ struct Args {
     /// SPARQL query to be executed
     #[clap(short, long)]
     query: String,
+
+    /// Trace of reasoning process
+    #[clap(short, long)]
+    trace: Option<bool>,
 }
 
 
@@ -35,7 +41,9 @@ fn main() {
     let timer = ::std::time::Instant::now();
     let f = File::open(args.abox).unwrap();
     let reader = BufReader::new(f);
-
+    if let Some(true) = args.trace {
+        env_logger::Builder::from_env(Env::default().default_filter_or("trace")).init();
+    }
 
     println!("Loading data ABox and TBox");
     let mut reasoning_store = ReasoningStore::new();
