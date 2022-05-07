@@ -19,6 +19,7 @@ The following parameters can be defined:
 1. `--abox` file location to abox statements. File in TTL format (.ttl) supported.
 2. `--tbox` file location to tbox statements. Files in TTL format (.ttl) and N3 Logic (.n3) supported.
 3. `--query` string representing SPARQL query
+4. `--trace` [optional] boolean for printing reasoning traces 
 
 For example:
 ```
