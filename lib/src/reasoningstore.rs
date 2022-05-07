@@ -35,21 +35,41 @@ pub struct ReasoningStore {
 
 
 impl ReasoningStore {
-    fn eval_triple_element(&self, left: &NamedOrBlankNode, right:&NamedOrBlankNode) -> bool{
-        if left.is_blank_node() && right.is_blank_node(){
+    fn eval_backward(&self, rule_head: &ReasonerTriple)->Binding{
+        let sub_rules : Vec<(Rc<Rule>, Vec<(String, String)>)> = self.find_subrules(rule_head);
+        let mut all_bindings = Binding::new();
+        for (sub_rule,var_subs) in sub_rules.into_iter(){
+            let mut rule_bindings = Binding::new();
+            for rule_atom in &sub_rule.body{
+                let result_bindings = self.eval_rule_atom(rule_atom);
+                rule_bindings = rule_bindings.join(&result_bindings);
+                //recursive call
+                let recursive_bindings = self.eval_backward(rule_atom);
+                rule_bindings.combine(recursive_bindings);
+            }
+            //rename variables
+            let renamed = rule_bindings.rename(var_subs);
+            all_bindings.combine(renamed);
+        }
+        all_bindings
+    }
+    fn eval_triple_element(&self, left: &NamedOrBlankNode, right:&NamedOrBlankNode,   var_names_sub: &mut Vec<(String, String)>) -> bool{
+        if let (NamedOrBlankNode::BlankNode(left_name) ,NamedOrBlankNode::BlankNode(right_name))= (left,right) {
+            var_names_sub.push((left_name.as_str().to_string(), right_name.as_str().to_string()));
             true
         }else{
             left.eq(right)
         }
     }
-    pub(crate) fn find_subrules(&self, rule_head: &ReasonerTriple) -> Vec<Rc<Rule>> {
+    pub(crate) fn find_subrules(&self, rule_head: &ReasonerTriple) -> Vec<(Rc<Rule>,Vec<(String,String)>)> {
         let mut rule_matches = Vec::new();
         for rule in self.rules.iter(){
             let head:&ReasonerTriple = &rule.head;
-            if self.eval_triple_element(&head.s,&rule_head.s) &&
-                self.eval_triple_element(&head.p,&rule_head.p) &&
-                self.eval_triple_element(&head.o,&rule_head.o) {
-                rule_matches.push(rule.clone());
+            let mut var_names_subs  :Vec::<(String,String)>= Vec::new();
+            if self.eval_triple_element(&head.s, &rule_head.s, &mut var_names_subs) &&
+                self.eval_triple_element(&head.p,&rule_head.p,&mut var_names_subs) &&
+                self.eval_triple_element(&head.o,&rule_head.o,&mut var_names_subs) {
+                rule_matches.push((rule.clone(), var_names_subs));
             }
         }
         rule_matches
@@ -335,11 +355,11 @@ mod tests {
         {?s rdf:type test:SubClass. ?s test:hasRef ?o. ?o test:hasRef ?o2. ?o2 rdf:type test:SubClass.}=>{?s rdf:type test:SuperType.}");
         //match
         let backward_head = ReasonerTriple::new("?s".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperType".to_string());
-        let sub_rules : Vec<Rc<Rule>> = store.find_subrules(&backward_head);
+        let sub_rules  = store.find_subrules(&backward_head);
         assert_eq!(sub_rules.len(), 1);
         // no match
         let backward_head = ReasonerTriple::new("?s".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperTypeNotFound".to_string());
-        let sub_rules : Vec<Rc<Rule>> = store.find_subrules(&backward_head);
+        let sub_rules  = store.find_subrules(&backward_head);
         assert_eq!(sub_rules.len(), 0);
     }
     #[test]
@@ -349,7 +369,7 @@ mod tests {
         {?s rdf:type test:SubClass. ?s test:hasRef ?o. ?o test:hasRef ?o2. ?o2 rdf:type test:SubClass.}=>{?s rdf:type test:SuperType.}");
         // diff variable names
         let backward_head = ReasonerTriple::new("?newVar".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperType".to_string());
-        let sub_rules : Vec<Rc<Rule>> = store.find_subrules(&backward_head);
+        let sub_rules  = store.find_subrules(&backward_head);
         assert_eq!(sub_rules.len(), 1);
     }
 
@@ -365,7 +385,60 @@ mod tests {
         let mut binding: Binding = Binding::new();
         binding.add("s", Term::from(NamedNode::new("http://example2.com/a".to_string()).unwrap()));
         assert_eq!(binding, result_bindings);
+    }
 
+    #[test]
+    fn test_eval_backward_rule(){
+        let mut store = ReasoningStore::new();
+        store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n \
+        {?s rdf:type test:SubClass. ?s test:hasRef ?o. ?o test:hasRef ?o2. ?o2 rdf:type test:SubClass.}=>{?s rdf:type test:SuperType.}");
+        store.load_abox( b"<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .".as_ref());
+        store.load_abox( b"<http://example2.com/a> <http://www.test.be/test#hasRef> <http://example2.com/b> .".as_ref());
+        store.load_abox( b"<http://example2.com/b> <http://www.test.be/test#hasRef> <http://example2.com/c> .".as_ref());
+        store.load_abox( b"<http://example2.com/c> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .".as_ref());
+
+        // diff variable names
+        let backward_head = ReasonerTriple::new("?newVar".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperType".to_string());
+        let  bindings = store.eval_backward( &backward_head);
+        let mut result_bindings: Binding = Binding::new();
+        result_bindings.add("newVar", Term::from(NamedNode::new("http://example2.com/a".to_string()).unwrap()));
+        assert_eq!(result_bindings, bindings);
+    }
+    #[test]
+    fn test_eval_backward_multiple_rules(){
+        let mut store = ReasoningStore::new();
+        store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n \
+        {?s rdf:type test:SubClass.}=>{?s rdf:type test:SuperType.}\n\
+        {?s rdf:type test:SubClass2.}=>{?s rdf:type test:SuperType.}");
+        store.load_abox( b"<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .".as_ref());
+        store.load_abox( b"<http://example2.com/c> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass2> .".as_ref());
+
+        // diff variable names
+        let backward_head = ReasonerTriple::new("?newVar".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperType".to_string());
+        let  bindings = store.eval_backward( &backward_head);
+        let mut result_bindings: Binding = Binding::new();
+        result_bindings.add("newVar", Term::from(NamedNode::new("http://example2.com/a".to_string()).unwrap()));
+        result_bindings.add("newVar", Term::from(NamedNode::new("http://example2.com/c".to_string()).unwrap()));
+
+        assert_eq!(result_bindings, bindings);
+    }
+    #[test]
+    fn test_eval_backward_nested_rules(){
+        let mut store = ReasoningStore::new();
+        store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n \
+        {?s rdf:type test:SubClass. ?s test:hasRef ?o. ?o rdf:type test:SubClass2.}=>{?s rdf:type test:SuperType.}\n\
+        {?q rdf:type test:SubClassTemp.}=>{?q rdf:type test:SubClass2.}");
+        store.load_abox( b"<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .".as_ref());
+        store.load_abox( b"<http://example2.com/b> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClassTemp> .".as_ref());
+        store.load_abox( b"<http://example2.com/a> <http://www.test.be/test#hasRef> <http://example2.com/b> .".as_ref());
+
+        // diff variable names
+        let backward_head = ReasonerTriple::new("?newVar".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperType".to_string());
+        let  bindings = store.eval_backward( &backward_head);
+        let mut result_bindings: Binding = Binding::new();
+        result_bindings.add("newVar", Term::from(NamedNode::new("http://example2.com/a".to_string()).unwrap()));
+
+        assert_eq!(result_bindings, bindings);
     }
 
     #[test]
