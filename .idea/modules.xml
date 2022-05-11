@@ -5,6 +5,7 @@
       <module fileurl="file://$PROJECT_DIR$/RoXi.iml" filepath="$PROJECT_DIR$/RoXi.iml" />
       <module fileurl="file://$PROJECT_DIR$/js/js.iml" filepath="$PROJECT_DIR$/js/js.iml" />
       <module fileurl="file://$PROJECT_DIR$/lib/lib.iml" filepath="$PROJECT_DIR$/lib/lib.iml" />
+      <module fileurl="file://$PROJECT_DIR$/minimal/minimal.iml" filepath="$PROJECT_DIR$/minimal/minimal.iml" />
       <module fileurl="file://$PROJECT_DIR$/server/server.iml" filepath="$PROJECT_DIR$/server/server.iml" />
     </modules>
   </component>

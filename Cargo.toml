@@ -3,5 +3,6 @@
 members =[
 	"lib",
 	"server",
-	"js"
+	"js",
+	"minimal"
 ]
