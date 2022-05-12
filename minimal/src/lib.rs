@@ -133,6 +133,7 @@ impl<'a> Binding <'a> {
                 for join_key in &join_keys{
                     let left_term = left.bindings.get(*join_key).unwrap().get(left_c).unwrap();
                     let right_term = right.bindings.get(*join_key).unwrap().get(right_c).unwrap();
+                    // TODO: use indexes instead
                     if !left_term.eq(right_term){
                         match_keys = false;
                         break;
