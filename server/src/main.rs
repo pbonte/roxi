@@ -40,10 +40,9 @@ use minimal::tripleindex::TripleIndex;
 // }
 
 fn main(){
-    let timer = ::std::time::Instant::now();
     let mut rules = Vec::new();
     let mut encoder = Encoder::new();
-    let max_depth = 1000000;
+    let max_depth = 10000000;
     for i in 0..max_depth{
         let rule = Rule{head: Triple{s:VarOrTerm::newVar("s".to_string(), &mut encoder),p:VarOrTerm::newTerm("http://test".to_string(), &mut encoder),o:VarOrTerm::newTerm(format!("U{}", i+1), &mut encoder)},
             body: Vec::from([Triple{s:VarOrTerm::newVar("s".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("U{}",i),&mut encoder)}])};
@@ -66,6 +65,7 @@ fn main(){
     let query = Triple{s:VarOrTerm::newVar("s".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("U{}",max_depth),&mut encoder)};
 
     let mut store = TripleStore{rules:Vec::new(), rules_index , triple_index, encoder };
+    let timer = ::std::time::Instant::now();
 
     store.materialize();
     let elapsed = timer.elapsed();

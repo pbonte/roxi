@@ -354,8 +354,10 @@ var TripleStore = /** @class */ (function () {
     TripleStore.prototype.query = function (query_triple, triple_counter) {
         var bindings = new Binding();
         var counter = triple_counter ?  ? this.triple_index.len() :  : ;
+        console.log("checking ");
         for (var _i = 0, _a = this.triple_index.triples.slice(0, counter); _i < _a.length; _i++) {
             var triple = _a[_i];
+            console.log(triple);
             if (query_triple.s.isVar()) {
                 bindings.add(query_triple.s.content, triple.s);
             }
@@ -420,7 +422,7 @@ var TripleStore = /** @class */ (function () {
         return new_heads;
     };
     TripleStore.prototype.materialize = function () {
-        var inferred = [];
+        var inferred = new Array();
         var counter = 0;
         while (counter < this.triple_index.triples.length) {
             var process_triple = this.triple_index.triples.at(counter);

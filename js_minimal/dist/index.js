@@ -560,10 +560,10 @@ var TripleStore = /** @class */ (function () {
                 try {
                     for (var new_triples_1 = (e_10 = void 0, __values(new_triples)), new_triples_1_1 = new_triples_1.next(); !new_triples_1_1.done; new_triples_1_1 = new_triples_1.next()) {
                         var new_triple = new_triples_1_1.value;
-                        // if(!this.triple_index.contains(new_triple)){
-                        this.triple_index.add(new_triple);
-                        inferred.push(new_triple);
-                        // }
+                        if (!this.triple_index.contains(new_triple)) {
+                            this.triple_index.add(new_triple);
+                            inferred.push(new_triple);
+                        }
                     }
                 }
                 catch (e_10_1) { e_10 = { error: e_10_1 }; }
@@ -580,7 +580,6 @@ var TripleStore = /** @class */ (function () {
     };
     return TripleStore;
 }());
-var startTime = performance.now();
 var encoder = new Encoder();
 var triple_store = new TripleStore();
 triple_store.add(Triple.from("s1", "p", "o0", encoder));
@@ -590,6 +589,7 @@ for (var i = 0; i < 100000; i++) {
     var rule = new Rule(triple_head, [triple_body1]);
     triple_store.add_rule(rule);
 }
+var startTime = performance.now();
 var inferred = triple_store.materialize();
 console.log("inferred");
 console.log(inferred.length);

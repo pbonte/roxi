@@ -465,7 +465,6 @@ class TripleStore{
         return inferred;
     }
 }
-var startTime = performance.now();
 let encoder = new Encoder();
 
 
@@ -477,6 +476,7 @@ for(let i = 0; i < 100000; i++) {
     let rule = new Rule(triple_head, [triple_body1]);
     triple_store.add_rule(rule);
 }
+var startTime = performance.now();
 
 let inferred  = triple_store.materialize();
 console.log("inferred");

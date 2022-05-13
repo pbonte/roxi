@@ -93,14 +93,14 @@ pub struct TripleStore<'a>{
 }
 
 #[derive(Debug,  Clone, Eq, PartialEq)]
-pub struct Binding<'a> {
-    bindings: HashMap<usize, Vec<&'a TermImpl>>,
+pub struct Binding {
+    bindings: HashMap<usize, Vec<usize>>,
 }
-impl<'a> Binding <'a> {
-    pub fn new() -> Binding<'a> {
+impl Binding  {
+    pub fn new() -> Binding {
         Binding { bindings: HashMap::new() }
     }
-    pub fn add(& mut self, var_name: &usize, term: &'a TermImpl) {
+    pub fn add(& mut self, var_name: &usize, term: usize) {
         if !self.bindings.contains_key(var_name){
             self.bindings.insert(*var_name, Vec::new());
         }
@@ -113,7 +113,7 @@ impl<'a> Binding <'a> {
         }
         0
     }
-    pub fn join<'b>(& self, join_binding: &'b Binding<'a>) -> Binding<'a> {
+    pub fn join(& self, join_binding: & Binding) -> Binding {
         let mut left = self;
         let mut right = join_binding;
         if left.len() == 0 {return right.clone();}
@@ -133,8 +133,7 @@ impl<'a> Binding <'a> {
                 for join_key in &join_keys{
                     let left_term = left.bindings.get(*join_key).unwrap().get(left_c).unwrap();
                     let right_term = right.bindings.get(*join_key).unwrap().get(right_c).unwrap();
-                    // TODO: use indexes instead
-                    if !left_term.eq(right_term){
+                    if left_term != right_term{
                         match_keys = false;
                         break;
                     }
@@ -168,21 +167,21 @@ impl <'a> TripleStore <'a>{
         let mut counter = if let Some(size) = triple_counter{size} else {self.triple_index.len()};
         for Triple{s,p,o} in self.triple_index.triples.iter().take(counter){
             match &query_triple.s{
-                VarOrTerm::Var(s_var)=> bindings.add(&s_var.name,s.as_Term()),
+                VarOrTerm::Var(s_var)=> bindings.add(&s_var.name,s.as_Term().iri),
                 VarOrTerm::Term(s_term)=>if let (TermImpl{iri}, TermImpl{iri:iri2})= (s_term,s.as_Term()) {
-                    if !iri.eq(iri2){break;}
+                    if !iri.eq(iri2){continue;}
                 }
             }
             match &query_triple.p{
-                VarOrTerm::Var(p_var)=> bindings.add(&p_var.name,p.as_Term()),
+                VarOrTerm::Var(p_var)=> bindings.add(&p_var.name,p.as_Term().iri),
                 VarOrTerm::Term(p_term)=>if let (TermImpl{iri}, TermImpl{iri:iri2})= (p_term,p.as_Term()) {
-                    if !iri.eq(iri2){break;}
+                    if !iri.eq(iri2){continue;}
                 }
             }
             match &query_triple.o{
-                VarOrTerm::Var(o_var)=> bindings.add(&o_var.name,o.as_Term()),
+                VarOrTerm::Var(o_var)=> bindings.add(&o_var.name,o.as_Term().iri),
                 VarOrTerm::Term(o_term)=>if let (TermImpl{iri}, TermImpl{iri:iri2})= (o_term,o.as_Term()) {
-                    if !iri.eq(iri2){break;}
+                    if !iri.eq(iri2){continue;}
                 }
             }
         }
@@ -191,7 +190,8 @@ impl <'a> TripleStore <'a>{
     fn query_with_join(&self, query_triples:&Vec::<Triple>,triple_counter : Option<usize>) -> Binding{
         let mut bindings = Binding::new();
         for query_triple in query_triples{
-            let current_bindings = self.query(query_triple,triple_counter);
+            //let current_bindings = self.query(query_triple,triple_counter);
+            let current_bindings = self.triple_index.query(query_triple, triple_counter);
             bindings = bindings.join(&current_bindings);
         }
         bindings
@@ -224,23 +224,23 @@ impl <'a> TripleStore <'a>{
     }
     fn subsititue_rule_head(&self, head: &Triple, binding: &Binding) ->Vec<Triple>{
         let mut new_heads = Vec::new();
-        let mut s: &TermImpl;
-        let mut p: &TermImpl;
-        let mut o: &TermImpl;
+        let mut s: &usize;
+        let mut p: &usize;
+        let mut o: &usize;
         for result_counter in 0..binding.len(){
             match &head.s{
                 VarOrTerm::Var(s_var)=> s = binding.bindings.get(&s_var.name).unwrap().get(result_counter).unwrap(),
-                VarOrTerm::Term(s_term)=> s = s_term
+                VarOrTerm::Term(s_term)=> s = &s_term.iri
             }
             match &head.p{
                 VarOrTerm::Var(p_var)=> p = binding.bindings.get(&p_var.name).unwrap().get(result_counter).unwrap(),
-                VarOrTerm::Term(p_term)=> p = p_term
+                VarOrTerm::Term(p_term)=> p = &p_term.iri
             }
             match &head.o{
                 VarOrTerm::Var(o_var)=> o = binding.bindings.get(&o_var.name).unwrap().get(result_counter).unwrap(),
-                VarOrTerm::Term(o_term)=> o = o_term
+                VarOrTerm::Term(o_term)=> o = &o_term.iri
             }
-            new_heads.push(Triple{s:VarOrTerm::Term(s.clone()),p:VarOrTerm::Term(p.clone()),o:VarOrTerm::Term(o.clone())})
+            new_heads.push(Triple{s:VarOrTerm::Term(TermImpl{iri:s.clone()}),p:VarOrTerm::Term(TermImpl{iri:p.clone()}),o:VarOrTerm::Term(TermImpl{iri:o.clone()})})
         }
 
         new_heads
