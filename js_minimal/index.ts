@@ -100,14 +100,16 @@ class Rule{
 }
 class TripleIndex{
     triples: Triple[];
-    spo:Map<number,Map<number,number[]>>;
-    pos:Map<number,Map<number,number[]>>;
-    osp:Map<number,Map<number,number[]>>;
+    spo:Map<number,Map<number,[number,number][]>>;
+    pos:Map<number,Map<number,[number,number][]>>;
+    osp:Map<number,Map<number,[number,number][]>>;
+    counter: number;
     constructor() {
         this.triples = [];
-        this.spo = new Map<number, Map<number, number[]>>();
-        this.pos = new Map<number, Map<number, number[]>>();
-        this.osp = new Map<number, Map<number, number[]>>();
+        this.spo = new Map<number, Map<number, [number,number][]>>();
+        this.pos = new Map<number, Map<number, [number,number][]>>();
+        this.osp = new Map<number, Map<number, [number,number][]>>();
+        this.counter = 0;
     }
 
     len() :number{
@@ -116,28 +118,28 @@ class TripleIndex{
     add(triple: Triple){
         //spo
         if (! this.spo.has(triple.s.content)){
-            this.spo.set(triple.s.content, new Map<number,number[]>());
+            this.spo.set(triple.s.content, new Map<number,[number,number][]>());
         }
         if(! this.spo.get(triple.s.content)?.has(triple.p.content)){
             this.spo.get(triple.s.content)?.set(triple.p.content, []);
         }
-        this.spo.get(triple.s.content)?.get(triple.p.content)?.push(triple.o.content);
+        this.spo.get(triple.s.content)?.get(triple.p.content)?.push([triple.o.content,this.counter]);
         //pos
         if (! this.pos.has(triple.p.content)){
-            this.pos.set(triple.p.content, new Map<number,number[]>());
+            this.pos.set(triple.p.content, new Map<number,[number,number][]>());
         }
         if(! this.pos.get(triple.p.content)?.has(triple.o.content)){
             this.pos.get(triple.p.content)?.set(triple.o.content, []);
         }
-        this.spo.get(triple.p.content)?.get(triple.o.content)?.push(triple.s.content);
+        this.pos.get(triple.p.content)?.get(triple.o.content)?.push([triple.s.content,this.counter]);
         // osp
         if (! this.osp.has(triple.o.content)){
-            this.osp.set(triple.o.content, new Map<number,number[]>());
+            this.osp.set(triple.o.content, new Map<number,[number,number][]>());
         }
         if(! this.osp.get(triple.o.content)?.has(triple.s.content)){
             this.osp.get(triple.o.content)?.set(triple.s.content, []);
         }
-        this.osp.get(triple.o.content)?.get(triple.s.content)?.push(triple.p.content);
+        this.osp.get(triple.o.content)?.get(triple.s.content)?.push([triple.p.content,this.counter]);
         this.triples.push(triple);
     }
     contains(triple:Triple):boolean{
@@ -148,9 +150,135 @@ class TripleIndex{
                 return false;
             }else{
                 // @ts-ignore
-                return this.osp.get(triple.o.content)?.get(triple.s.content)?.includes(triple.p.content);
+                //return this.osp.get(triple.o.content)?.get(triple.s.content)?.includes(triple.p.content);
+                for (let [encoded, counter] of this.osp.get(triple.o.content)?.get(triple.s.content)){
+                    if(encoded == triple.p.content){
+                        return true;
+                    }
+                }
+                return false;
             }
         }
+
+    }
+    query(query_triple: Triple, triple_counter:number|undefined): Binding{
+        let matched_binding = new Binding();
+        let counter_check = triple_counter ?? this.counter;
+        //?s p o
+        if(query_triple.s.isVar() && query_triple.p.isTerm() && query_triple.o.isTerm()){
+            let indexes = this.pos.get(query_triple.p.content);
+            if (!!indexes){
+                let indexes2 = indexes.get(query_triple.o.content);
+                if(!!indexes2){
+
+                    for(let [encoded, counter] of indexes2){
+
+                        if(counter <= counter_check){
+                            matched_binding.add(query_triple.s.content,encoded);
+                        }else{
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        //s ?p o
+        else   if(query_triple.s.isTerm() && query_triple.p.isVar() && query_triple.o.isTerm()){
+            let indexes = this.osp.get(query_triple.o.content);
+            if (!!indexes){
+                let indexes2 = indexes.get(query_triple.s.content);
+                if(!!indexes2){
+                    for(let [encoded, counter] of indexes2){
+                        if(counter <= counter_check){
+                            matched_binding.add(query_triple.p.content,encoded);
+                        }else{
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        // s p ?o
+        else if(query_triple.s.isTerm() && query_triple.p.isTerm() && query_triple.o.isVar()){
+            let indexes = this.spo.get(query_triple.p.content);
+            if (!!indexes){
+                let indexes2 = indexes.get(query_triple.p.content);
+                if(!!indexes2){
+                    for(let [encoded, counter] of indexes2){
+                        if(counter <= counter_check){
+                            matched_binding.add(query_triple.o.content,encoded);
+                        }else{
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        //?s ?p o
+        else  if(query_triple.s.isVar() && query_triple.p.isVar() && query_triple.o.isTerm()){
+            let indexes = this.osp.get(query_triple.o.content);
+            if (!!indexes){
+                for(let [s_key, p_values] of indexes){
+                    for(let [encoded, counter] of p_values){
+                        if(counter <= counter_check){
+                            matched_binding.add(query_triple.s.content,s_key);
+                            matched_binding.add(query_triple.p.content,encoded);
+                        }else{
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        //s ?p ?o
+        else  if(query_triple.s.isTerm() && query_triple.p.isVar() && query_triple.o.isVar()){
+            let indexes = this.spo.get(query_triple.s.content);
+            if (!!indexes){
+                for(let [p_key, o_values] of indexes){
+                    for(let [encoded, counter] of o_values){
+                        if(counter <= counter_check){
+                            matched_binding.add(query_triple.p.content,p_key);
+                            matched_binding.add(query_triple.o.content,encoded);
+                        }else{
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        //?s p ?o
+        else  if(query_triple.s.isVar() && query_triple.p.isTerm() && query_triple.o.isVar()){
+            let indexes = this.pos.get(query_triple.p.content);
+            if (!!indexes){
+                for(let [o_key, s_values] of indexes){
+                    for(let [encoded, counter] of s_values){
+                        if(counter <= counter_check){
+                            matched_binding.add(query_triple.o.content,o_key);
+                            matched_binding.add(query_triple.s.content,encoded);
+                        }else{
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        //?s ?p ?o
+        else  if(query_triple.s.isVar() && query_triple.p.isVar() && query_triple.o.isVar()){
+            for (let [s_key, p_values] of this.spo){
+                for(let [p_key, o_values] of p_values){
+                    for(let [encoded, counter] of o_values){
+                        if(counter <= counter_check){
+                            matched_binding.add(query_triple.s.content,s_key);
+                            matched_binding.add(query_triple.p.content,p_key);
+                            matched_binding.add(query_triple.o.content,encoded);
+                        }else{
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        return matched_binding;
 
     }
 }
@@ -289,11 +417,11 @@ class RuleIndex{
     }
 }
 class Binding{
-    bindings : Map<number, Term[]>;
+    bindings : Map<number, number[]>;
     constructor() {
-        this.bindings = new Map<number, Term[]>();
+        this.bindings = new Map<number, number[]>();
     }
-    add(var_name: number, term:Term){
+    add(var_name: number, term:number){
         if(!this.bindings.has(var_name)){
             this.bindings.set(var_name,[]);
         }
@@ -328,8 +456,8 @@ class Binding{
             for( let right_c = 0; right_c < right.len(); right_c++){
                 let match_keys = true;
                 for(let join_key of join_keys){
-                    let left_term = left.bindings.get(join_key)?.at(left_c)?.content;
-                    let right_term = right.bindings.get(join_key)?.at(right_c)?.content;
+                    let left_term = left.bindings.get(join_key)?.at(left_c);
+                    let right_term = right.bindings.get(join_key)?.at(right_c);
                     if (left_term != right_term){
                         match_keys = false;
                         break;
@@ -378,21 +506,21 @@ class TripleStore{
         let counter = triple_counter ??  this.triple_index.len();
         for(let triple of this.triple_index.triples.slice(0,counter)){
             if(query_triple.s.isVar()){
-                bindings.add(query_triple.s.content,triple.s);
+                bindings.add(query_triple.s.content,triple.s.content);
             }else{
                 if(query_triple.s.content!= triple.s.content){
                     break;
                 }
             }
             if(query_triple.p.isVar()){
-                bindings.add(query_triple.p.content,triple.p);
+                bindings.add(query_triple.p.content,triple.p.content);
             }else{
                 if(query_triple.p.content!= triple.p.content){
                     break;
                 }
             }
             if(query_triple.o.isVar()){
-                bindings.add(query_triple.o.content,triple.o);
+                bindings.add(query_triple.o.content,triple.o.content);
             }else{
                 if(query_triple.o.content!= triple.o.content){
                     break;
@@ -405,7 +533,8 @@ class TripleStore{
     queryWithJoin(query_triples:Triple[], triple_counter: number | undefined): Binding{
         let bindings = new Binding();
         for( let query_triple of query_triples){
-            let current_binding = this.query(query_triple,triple_counter);
+            //let current_binding = this.query(query_triple,triple_counter);
+            let current_binding = this.triple_index.query(query_triple,triple_counter);
             bindings = bindings.join(current_binding);
         }
         return bindings;
@@ -415,18 +544,21 @@ class TripleStore{
         let s,p,o;
         for(let result_counter = 0 ; result_counter < binding.len(); result_counter++){
             if(head.s.isVar()){
-                s = binding.bindings.get(head.s.content)?.at(result_counter);
+                // @ts-ignore
+                s = new Term(binding.bindings.get(head.s.content)?.at(result_counter));
 
             }else{
                 s= head.s;
             }
             if(head.p.isVar()){
-                p = binding.bindings.get(head.p.content)?.at(result_counter);
+                // @ts-ignore
+                p = new Term(binding.bindings.get(head.p.content)?.at(result_counter));
             }else{
                 p= head.p;
             }
             if(head.o.isVar()){
-                o = binding.bindings.get(head.o.content)?.at(result_counter);
+                // @ts-ignore
+                o = new Term(binding.bindings.get(head.o.content)?.at(result_counter));
             }else{
                 o= head.o;
             }
@@ -475,6 +607,14 @@ for(let i = 0; i < 100000; i++) {
     let triple_body1 = Triple.from("?s1", "p", "o"+i, encoder);
     let rule = new Rule(triple_head, [triple_body1]);
     triple_store.add_rule(rule);
+    let triple_head2 = Triple.from("?s1", "p", "i"+(i+1), encoder);
+    let triple_body21 = Triple.from("?s1", "p", "o"+i, encoder);
+    let rule2 = new Rule(triple_head2, [triple_body21]);
+    triple_store.add_rule(rule2);
+    let triple_head3 = Triple.from("?s1", "p", "j"+(i+1), encoder);
+    let triple_body31 = Triple.from("?s1", "p", "o"+i, encoder);
+    let rule3 = new Rule(triple_head3, [triple_body31]);
+    triple_store.add_rule(rule3);
 }
 var startTime = performance.now();
 

@@ -118,6 +118,7 @@ var TripleIndex = /** @class */ (function () {
         this.spo = new Map();
         this.pos = new Map();
         this.osp = new Map();
+        this.counter = 0;
     }
     TripleIndex.prototype.len = function () {
         return this.triples.length;
@@ -131,7 +132,7 @@ var TripleIndex = /** @class */ (function () {
         if (!((_a = this.spo.get(triple.s.content)) === null || _a === void 0 ? void 0 : _a.has(triple.p.content))) {
             (_b = this.spo.get(triple.s.content)) === null || _b === void 0 ? void 0 : _b.set(triple.p.content, []);
         }
-        (_d = (_c = this.spo.get(triple.s.content)) === null || _c === void 0 ? void 0 : _c.get(triple.p.content)) === null || _d === void 0 ? void 0 : _d.push(triple.o.content);
+        (_d = (_c = this.spo.get(triple.s.content)) === null || _c === void 0 ? void 0 : _c.get(triple.p.content)) === null || _d === void 0 ? void 0 : _d.push([triple.o.content, this.counter]);
         //pos
         if (!this.pos.has(triple.p.content)) {
             this.pos.set(triple.p.content, new Map());
@@ -139,7 +140,7 @@ var TripleIndex = /** @class */ (function () {
         if (!((_e = this.pos.get(triple.p.content)) === null || _e === void 0 ? void 0 : _e.has(triple.o.content))) {
             (_f = this.pos.get(triple.p.content)) === null || _f === void 0 ? void 0 : _f.set(triple.o.content, []);
         }
-        (_h = (_g = this.spo.get(triple.p.content)) === null || _g === void 0 ? void 0 : _g.get(triple.o.content)) === null || _h === void 0 ? void 0 : _h.push(triple.s.content);
+        (_h = (_g = this.pos.get(triple.p.content)) === null || _g === void 0 ? void 0 : _g.get(triple.o.content)) === null || _h === void 0 ? void 0 : _h.push([triple.s.content, this.counter]);
         // osp
         if (!this.osp.has(triple.o.content)) {
             this.osp.set(triple.o.content, new Map());
@@ -147,23 +148,285 @@ var TripleIndex = /** @class */ (function () {
         if (!((_j = this.osp.get(triple.o.content)) === null || _j === void 0 ? void 0 : _j.has(triple.s.content))) {
             (_k = this.osp.get(triple.o.content)) === null || _k === void 0 ? void 0 : _k.set(triple.s.content, []);
         }
-        (_m = (_l = this.osp.get(triple.o.content)) === null || _l === void 0 ? void 0 : _l.get(triple.s.content)) === null || _m === void 0 ? void 0 : _m.push(triple.p.content);
+        (_m = (_l = this.osp.get(triple.o.content)) === null || _l === void 0 ? void 0 : _l.get(triple.s.content)) === null || _m === void 0 ? void 0 : _m.push([triple.p.content, this.counter]);
         this.triples.push(triple);
     };
     TripleIndex.prototype.contains = function (triple) {
-        var _a, _b, _c;
+        var e_1, _a;
+        var _b, _c;
         if (!this.osp.has(triple.o.content)) {
             return false;
         }
         else {
-            if (!((_a = this.osp.get(triple.o.content)) === null || _a === void 0 ? void 0 : _a.has(triple.s.content))) {
+            if (!((_b = this.osp.get(triple.o.content)) === null || _b === void 0 ? void 0 : _b.has(triple.s.content))) {
                 return false;
             }
             else {
-                // @ts-ignore
-                return (_c = (_b = this.osp.get(triple.o.content)) === null || _b === void 0 ? void 0 : _b.get(triple.s.content)) === null || _c === void 0 ? void 0 : _c.includes(triple.p.content);
+                try {
+                    // @ts-ignore
+                    //return this.osp.get(triple.o.content)?.get(triple.s.content)?.includes(triple.p.content);
+                    for (var _d = __values((_c = this.osp.get(triple.o.content)) === null || _c === void 0 ? void 0 : _c.get(triple.s.content)), _e = _d.next(); !_e.done; _e = _d.next()) {
+                        var _f = __read(_e.value, 2), encoded = _f[0], counter = _f[1];
+                        if (encoded == triple.p.content) {
+                            return true;
+                        }
+                    }
+                }
+                catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                finally {
+                    try {
+                        if (_e && !_e.done && (_a = _d.return)) _a.call(_d);
+                    }
+                    finally { if (e_1) throw e_1.error; }
+                }
+                return false;
             }
         }
+    };
+    TripleIndex.prototype.query = function (query_triple, triple_counter) {
+        var e_2, _a, e_3, _b, e_4, _c, e_5, _d, e_6, _e, e_7, _f, e_8, _g, e_9, _h, e_10, _j, e_11, _k, e_12, _l, e_13, _m;
+        var matched_binding = new Binding();
+        var counter_check = triple_counter !== null && triple_counter !== void 0 ? triple_counter : this.counter;
+        //?s p o
+        if (query_triple.s.isVar() && query_triple.p.isTerm() && query_triple.o.isTerm()) {
+            var indexes = this.pos.get(query_triple.p.content);
+            if (!!indexes) {
+                var indexes2 = indexes.get(query_triple.o.content);
+                if (!!indexes2) {
+                    try {
+                        for (var indexes2_1 = __values(indexes2), indexes2_1_1 = indexes2_1.next(); !indexes2_1_1.done; indexes2_1_1 = indexes2_1.next()) {
+                            var _o = __read(indexes2_1_1.value, 2), encoded = _o[0], counter = _o[1];
+                            if (counter <= counter_check) {
+                                matched_binding.add(query_triple.s.content, encoded);
+                            }
+                            else {
+                                break;
+                            }
+                        }
+                    }
+                    catch (e_2_1) { e_2 = { error: e_2_1 }; }
+                    finally {
+                        try {
+                            if (indexes2_1_1 && !indexes2_1_1.done && (_a = indexes2_1.return)) _a.call(indexes2_1);
+                        }
+                        finally { if (e_2) throw e_2.error; }
+                    }
+                }
+            }
+        }
+        //s ?p o
+        else if (query_triple.s.isTerm() && query_triple.p.isVar() && query_triple.o.isTerm()) {
+            var indexes = this.osp.get(query_triple.o.content);
+            if (!!indexes) {
+                var indexes2 = indexes.get(query_triple.s.content);
+                if (!!indexes2) {
+                    try {
+                        for (var indexes2_2 = __values(indexes2), indexes2_2_1 = indexes2_2.next(); !indexes2_2_1.done; indexes2_2_1 = indexes2_2.next()) {
+                            var _p = __read(indexes2_2_1.value, 2), encoded = _p[0], counter = _p[1];
+                            if (counter <= counter_check) {
+                                matched_binding.add(query_triple.p.content, encoded);
+                            }
+                            else {
+                                break;
+                            }
+                        }
+                    }
+                    catch (e_3_1) { e_3 = { error: e_3_1 }; }
+                    finally {
+                        try {
+                            if (indexes2_2_1 && !indexes2_2_1.done && (_b = indexes2_2.return)) _b.call(indexes2_2);
+                        }
+                        finally { if (e_3) throw e_3.error; }
+                    }
+                }
+            }
+        }
+        // s p ?o
+        else if (query_triple.s.isTerm() && query_triple.p.isTerm() && query_triple.o.isVar()) {
+            var indexes = this.spo.get(query_triple.p.content);
+            if (!!indexes) {
+                var indexes2 = indexes.get(query_triple.p.content);
+                if (!!indexes2) {
+                    try {
+                        for (var indexes2_3 = __values(indexes2), indexes2_3_1 = indexes2_3.next(); !indexes2_3_1.done; indexes2_3_1 = indexes2_3.next()) {
+                            var _q = __read(indexes2_3_1.value, 2), encoded = _q[0], counter = _q[1];
+                            if (counter <= counter_check) {
+                                matched_binding.add(query_triple.o.content, encoded);
+                            }
+                            else {
+                                break;
+                            }
+                        }
+                    }
+                    catch (e_4_1) { e_4 = { error: e_4_1 }; }
+                    finally {
+                        try {
+                            if (indexes2_3_1 && !indexes2_3_1.done && (_c = indexes2_3.return)) _c.call(indexes2_3);
+                        }
+                        finally { if (e_4) throw e_4.error; }
+                    }
+                }
+            }
+        }
+        //?s ?p o
+        else if (query_triple.s.isVar() && query_triple.p.isVar() && query_triple.o.isTerm()) {
+            var indexes = this.osp.get(query_triple.o.content);
+            if (!!indexes) {
+                try {
+                    for (var indexes_1 = __values(indexes), indexes_1_1 = indexes_1.next(); !indexes_1_1.done; indexes_1_1 = indexes_1.next()) {
+                        var _r = __read(indexes_1_1.value, 2), s_key = _r[0], p_values = _r[1];
+                        try {
+                            for (var p_values_1 = (e_6 = void 0, __values(p_values)), p_values_1_1 = p_values_1.next(); !p_values_1_1.done; p_values_1_1 = p_values_1.next()) {
+                                var _s = __read(p_values_1_1.value, 2), encoded = _s[0], counter = _s[1];
+                                if (counter <= counter_check) {
+                                    matched_binding.add(query_triple.s.content, s_key);
+                                    matched_binding.add(query_triple.p.content, encoded);
+                                }
+                                else {
+                                    break;
+                                }
+                            }
+                        }
+                        catch (e_6_1) { e_6 = { error: e_6_1 }; }
+                        finally {
+                            try {
+                                if (p_values_1_1 && !p_values_1_1.done && (_e = p_values_1.return)) _e.call(p_values_1);
+                            }
+                            finally { if (e_6) throw e_6.error; }
+                        }
+                    }
+                }
+                catch (e_5_1) { e_5 = { error: e_5_1 }; }
+                finally {
+                    try {
+                        if (indexes_1_1 && !indexes_1_1.done && (_d = indexes_1.return)) _d.call(indexes_1);
+                    }
+                    finally { if (e_5) throw e_5.error; }
+                }
+            }
+        }
+        //s ?p ?o
+        else if (query_triple.s.isTerm() && query_triple.p.isVar() && query_triple.o.isVar()) {
+            var indexes = this.spo.get(query_triple.s.content);
+            if (!!indexes) {
+                try {
+                    for (var indexes_2 = __values(indexes), indexes_2_1 = indexes_2.next(); !indexes_2_1.done; indexes_2_1 = indexes_2.next()) {
+                        var _t = __read(indexes_2_1.value, 2), p_key = _t[0], o_values = _t[1];
+                        try {
+                            for (var o_values_1 = (e_8 = void 0, __values(o_values)), o_values_1_1 = o_values_1.next(); !o_values_1_1.done; o_values_1_1 = o_values_1.next()) {
+                                var _u = __read(o_values_1_1.value, 2), encoded = _u[0], counter = _u[1];
+                                if (counter <= counter_check) {
+                                    matched_binding.add(query_triple.p.content, p_key);
+                                    matched_binding.add(query_triple.o.content, encoded);
+                                }
+                                else {
+                                    break;
+                                }
+                            }
+                        }
+                        catch (e_8_1) { e_8 = { error: e_8_1 }; }
+                        finally {
+                            try {
+                                if (o_values_1_1 && !o_values_1_1.done && (_g = o_values_1.return)) _g.call(o_values_1);
+                            }
+                            finally { if (e_8) throw e_8.error; }
+                        }
+                    }
+                }
+                catch (e_7_1) { e_7 = { error: e_7_1 }; }
+                finally {
+                    try {
+                        if (indexes_2_1 && !indexes_2_1.done && (_f = indexes_2.return)) _f.call(indexes_2);
+                    }
+                    finally { if (e_7) throw e_7.error; }
+                }
+            }
+        }
+        //?s p ?o
+        else if (query_triple.s.isVar() && query_triple.p.isTerm() && query_triple.o.isVar()) {
+            var indexes = this.pos.get(query_triple.p.content);
+            if (!!indexes) {
+                try {
+                    for (var indexes_3 = __values(indexes), indexes_3_1 = indexes_3.next(); !indexes_3_1.done; indexes_3_1 = indexes_3.next()) {
+                        var _v = __read(indexes_3_1.value, 2), o_key = _v[0], s_values = _v[1];
+                        try {
+                            for (var s_values_1 = (e_10 = void 0, __values(s_values)), s_values_1_1 = s_values_1.next(); !s_values_1_1.done; s_values_1_1 = s_values_1.next()) {
+                                var _w = __read(s_values_1_1.value, 2), encoded = _w[0], counter = _w[1];
+                                if (counter <= counter_check) {
+                                    matched_binding.add(query_triple.o.content, o_key);
+                                    matched_binding.add(query_triple.s.content, encoded);
+                                }
+                                else {
+                                    break;
+                                }
+                            }
+                        }
+                        catch (e_10_1) { e_10 = { error: e_10_1 }; }
+                        finally {
+                            try {
+                                if (s_values_1_1 && !s_values_1_1.done && (_j = s_values_1.return)) _j.call(s_values_1);
+                            }
+                            finally { if (e_10) throw e_10.error; }
+                        }
+                    }
+                }
+                catch (e_9_1) { e_9 = { error: e_9_1 }; }
+                finally {
+                    try {
+                        if (indexes_3_1 && !indexes_3_1.done && (_h = indexes_3.return)) _h.call(indexes_3);
+                    }
+                    finally { if (e_9) throw e_9.error; }
+                }
+            }
+        }
+        //?s ?p ?o
+        else if (query_triple.s.isVar() && query_triple.p.isVar() && query_triple.o.isVar()) {
+            try {
+                for (var _x = __values(this.spo), _y = _x.next(); !_y.done; _y = _x.next()) {
+                    var _z = __read(_y.value, 2), s_key = _z[0], p_values = _z[1];
+                    try {
+                        for (var p_values_2 = (e_12 = void 0, __values(p_values)), p_values_2_1 = p_values_2.next(); !p_values_2_1.done; p_values_2_1 = p_values_2.next()) {
+                            var _0 = __read(p_values_2_1.value, 2), p_key = _0[0], o_values = _0[1];
+                            try {
+                                for (var o_values_2 = (e_13 = void 0, __values(o_values)), o_values_2_1 = o_values_2.next(); !o_values_2_1.done; o_values_2_1 = o_values_2.next()) {
+                                    var _1 = __read(o_values_2_1.value, 2), encoded = _1[0], counter = _1[1];
+                                    if (counter <= counter_check) {
+                                        matched_binding.add(query_triple.s.content, s_key);
+                                        matched_binding.add(query_triple.p.content, p_key);
+                                        matched_binding.add(query_triple.o.content, encoded);
+                                    }
+                                    else {
+                                        break;
+                                    }
+                                }
+                            }
+                            catch (e_13_1) { e_13 = { error: e_13_1 }; }
+                            finally {
+                                try {
+                                    if (o_values_2_1 && !o_values_2_1.done && (_m = o_values_2.return)) _m.call(o_values_2);
+                                }
+                                finally { if (e_13) throw e_13.error; }
+                            }
+                        }
+                    }
+                    catch (e_12_1) { e_12 = { error: e_12_1 }; }
+                    finally {
+                        try {
+                            if (p_values_2_1 && !p_values_2_1.done && (_l = p_values_2.return)) _l.call(p_values_2);
+                        }
+                        finally { if (e_12) throw e_12.error; }
+                    }
+                }
+            }
+            catch (e_11_1) { e_11 = { error: e_11_1 }; }
+            finally {
+                try {
+                    if (_y && !_y.done && (_k = _x.return)) _k.call(_x);
+                }
+                finally { if (e_11) throw e_11.error; }
+            }
+        }
+        return matched_binding;
     };
     return TripleIndex;
 }());
@@ -308,25 +571,25 @@ var Binding = /** @class */ (function () {
         (_a = this.bindings.get(var_name)) === null || _a === void 0 ? void 0 : _a.push(term);
     };
     Binding.prototype.len = function () {
-        var e_1, _a;
+        var e_14, _a;
         try {
             for (var _b = __values(this.bindings.entries()), _c = _b.next(); !_c.done; _c = _b.next()) {
                 var _d = __read(_c.value, 2), key = _d[0], value = _d[1];
                 return value.length;
             }
         }
-        catch (e_1_1) { e_1 = { error: e_1_1 }; }
+        catch (e_14_1) { e_14 = { error: e_14_1 }; }
         finally {
             try {
                 if (_c && !_c.done && (_a = _b.return)) _a.call(_b);
             }
-            finally { if (e_1) throw e_1.error; }
+            finally { if (e_14) throw e_14.error; }
         }
         return 0;
     };
     Binding.prototype.join = function (join_binding) {
-        var e_2, _a, e_3, _b, e_4, _c, e_5, _d;
-        var _e, _f, _g, _h, _j, _k;
+        var e_15, _a, e_16, _b, e_17, _c, e_18, _d;
+        var _e, _f, _g, _h;
         var left = join_binding;
         left = this;
         var right = join_binding;
@@ -345,71 +608,71 @@ var Binding = /** @class */ (function () {
         }
         var join_keys = [];
         try {
-            for (var _l = __values(left.bindings.keys()), _m = _l.next(); !_m.done; _m = _l.next()) {
-                var key = _m.value;
+            for (var _j = __values(left.bindings.keys()), _k = _j.next(); !_k.done; _k = _j.next()) {
+                var key = _k.value;
                 if (right.bindings.has(key)) {
                     join_keys.push(key);
                 }
             }
         }
-        catch (e_2_1) { e_2 = { error: e_2_1 }; }
+        catch (e_15_1) { e_15 = { error: e_15_1 }; }
         finally {
             try {
-                if (_m && !_m.done && (_a = _l.return)) _a.call(_l);
+                if (_k && !_k.done && (_a = _j.return)) _a.call(_j);
             }
-            finally { if (e_2) throw e_2.error; }
+            finally { if (e_15) throw e_15.error; }
         }
         for (var left_c = 0; left_c < left.len(); left_c++) {
             for (var right_c = 0; right_c < right.len(); right_c++) {
                 var match_keys = true;
                 try {
-                    for (var join_keys_1 = (e_3 = void 0, __values(join_keys)), join_keys_1_1 = join_keys_1.next(); !join_keys_1_1.done; join_keys_1_1 = join_keys_1.next()) {
+                    for (var join_keys_1 = (e_16 = void 0, __values(join_keys)), join_keys_1_1 = join_keys_1.next(); !join_keys_1_1.done; join_keys_1_1 = join_keys_1.next()) {
                         var join_key = join_keys_1_1.value;
-                        var left_term = (_f = (_e = left.bindings.get(join_key)) === null || _e === void 0 ? void 0 : _e.at(left_c)) === null || _f === void 0 ? void 0 : _f.content;
-                        var right_term = (_h = (_g = right.bindings.get(join_key)) === null || _g === void 0 ? void 0 : _g.at(right_c)) === null || _h === void 0 ? void 0 : _h.content;
+                        var left_term = (_e = left.bindings.get(join_key)) === null || _e === void 0 ? void 0 : _e.at(left_c);
+                        var right_term = (_f = right.bindings.get(join_key)) === null || _f === void 0 ? void 0 : _f.at(right_c);
                         if (left_term != right_term) {
                             match_keys = false;
                             break;
                         }
                     }
                 }
-                catch (e_3_1) { e_3 = { error: e_3_1 }; }
+                catch (e_16_1) { e_16 = { error: e_16_1 }; }
                 finally {
                     try {
                         if (join_keys_1_1 && !join_keys_1_1.done && (_b = join_keys_1.return)) _b.call(join_keys_1);
                     }
-                    finally { if (e_3) throw e_3.error; }
+                    finally { if (e_16) throw e_16.error; }
                 }
                 if (match_keys) {
                     try {
-                        for (var _o = (e_4 = void 0, __values(left.bindings.keys())), _p = _o.next(); !_p.done; _p = _o.next()) {
-                            var key = _p.value;
+                        for (var _l = (e_17 = void 0, __values(left.bindings.keys())), _m = _l.next(); !_m.done; _m = _l.next()) {
+                            var key = _m.value;
                             // @ts-ignore
-                            result.add(key, (_j = left.bindings.get(key)) === null || _j === void 0 ? void 0 : _j.at(left_c));
+                            result.add(key, (_g = left.bindings.get(key)) === null || _g === void 0 ? void 0 : _g.at(left_c));
                         }
                     }
-                    catch (e_4_1) { e_4 = { error: e_4_1 }; }
+                    catch (e_17_1) { e_17 = { error: e_17_1 }; }
                     finally {
                         try {
-                            if (_p && !_p.done && (_c = _o.return)) _c.call(_o);
+                            if (_m && !_m.done && (_c = _l.return)) _c.call(_l);
                         }
-                        finally { if (e_4) throw e_4.error; }
+                        finally { if (e_17) throw e_17.error; }
                     }
                     try {
-                        for (var _q = (e_5 = void 0, __values(right.bindings.keys())), _r = _q.next(); !_r.done; _r = _q.next()) {
-                            var key = _r.value;
+                        for (var _o = (e_18 = void 0, __values(right.bindings.keys())), _p = _o.next(); !_p.done; _p = _o.next()) {
+                            var key = _p.value;
                             if (!left.bindings.has(key)) {
                                 // @ts-ignore
-                                result.add(key, (_k = right.bindings.get(key)) === null || _k === void 0 ? void 0 : _k.at(right_c));
+                                result.add(key, (_h = right.bindings.get(key)) === null || _h === void 0 ? void 0 : _h.at(right_c));
                             }
                         }
                     }
-                    catch (e_5_1) { e_5 = { error: e_5_1 }; }
+                    catch (e_18_1) { e_18 = { error: e_18_1 }; }
                     finally {
                         try {
-                            if (_r && !_r.done && (_d = _q.return)) _d.call(_q);
+                            if (_p && !_p.done && (_d = _o.return)) _d.call(_o);
                         }
-                        finally { if (e_5) throw e_5.error; }
+                        finally { if (e_18) throw e_18.error; }
                     }
                 }
             }
@@ -433,14 +696,14 @@ var TripleStore = /** @class */ (function () {
         this.rules.push(rule);
     };
     TripleStore.prototype.query = function (query_triple, triple_counter) {
-        var e_6, _a;
+        var e_19, _a;
         var bindings = new Binding();
         var counter = triple_counter !== null && triple_counter !== void 0 ? triple_counter : this.triple_index.len();
         try {
             for (var _b = __values(this.triple_index.triples.slice(0, counter)), _c = _b.next(); !_c.done; _c = _b.next()) {
                 var triple = _c.value;
                 if (query_triple.s.isVar()) {
-                    bindings.add(query_triple.s.content, triple.s);
+                    bindings.add(query_triple.s.content, triple.s.content);
                 }
                 else {
                     if (query_triple.s.content != triple.s.content) {
@@ -448,7 +711,7 @@ var TripleStore = /** @class */ (function () {
                     }
                 }
                 if (query_triple.p.isVar()) {
-                    bindings.add(query_triple.p.content, triple.p);
+                    bindings.add(query_triple.p.content, triple.p.content);
                 }
                 else {
                     if (query_triple.p.content != triple.p.content) {
@@ -456,7 +719,7 @@ var TripleStore = /** @class */ (function () {
                     }
                 }
                 if (query_triple.o.isVar()) {
-                    bindings.add(query_triple.o.content, triple.o);
+                    bindings.add(query_triple.o.content, triple.o.content);
                 }
                 else {
                     if (query_triple.o.content != triple.o.content) {
@@ -465,31 +728,32 @@ var TripleStore = /** @class */ (function () {
                 }
             }
         }
-        catch (e_6_1) { e_6 = { error: e_6_1 }; }
+        catch (e_19_1) { e_19 = { error: e_19_1 }; }
         finally {
             try {
                 if (_c && !_c.done && (_a = _b.return)) _a.call(_b);
             }
-            finally { if (e_6) throw e_6.error; }
+            finally { if (e_19) throw e_19.error; }
         }
         return bindings;
     };
     TripleStore.prototype.queryWithJoin = function (query_triples, triple_counter) {
-        var e_7, _a;
+        var e_20, _a;
         var bindings = new Binding();
         try {
             for (var query_triples_1 = __values(query_triples), query_triples_1_1 = query_triples_1.next(); !query_triples_1_1.done; query_triples_1_1 = query_triples_1.next()) {
                 var query_triple = query_triples_1_1.value;
-                var current_binding = this.query(query_triple, triple_counter);
+                //let current_binding = this.query(query_triple,triple_counter);
+                var current_binding = this.triple_index.query(query_triple, triple_counter);
                 bindings = bindings.join(current_binding);
             }
         }
-        catch (e_7_1) { e_7 = { error: e_7_1 }; }
+        catch (e_20_1) { e_20 = { error: e_20_1 }; }
         finally {
             try {
                 if (query_triples_1_1 && !query_triples_1_1.done && (_a = query_triples_1.return)) _a.call(query_triples_1);
             }
-            finally { if (e_7) throw e_7.error; }
+            finally { if (e_20) throw e_20.error; }
         }
         return bindings;
     };
@@ -499,19 +763,22 @@ var TripleStore = /** @class */ (function () {
         var s, p, o;
         for (var result_counter = 0; result_counter < binding.len(); result_counter++) {
             if (head.s.isVar()) {
-                s = (_a = binding.bindings.get(head.s.content)) === null || _a === void 0 ? void 0 : _a.at(result_counter);
+                // @ts-ignore
+                s = new Term((_a = binding.bindings.get(head.s.content)) === null || _a === void 0 ? void 0 : _a.at(result_counter));
             }
             else {
                 s = head.s;
             }
             if (head.p.isVar()) {
-                p = (_b = binding.bindings.get(head.p.content)) === null || _b === void 0 ? void 0 : _b.at(result_counter);
+                // @ts-ignore
+                p = new Term((_b = binding.bindings.get(head.p.content)) === null || _b === void 0 ? void 0 : _b.at(result_counter));
             }
             else {
                 p = head.p;
             }
             if (head.o.isVar()) {
-                o = (_c = binding.bindings.get(head.o.content)) === null || _c === void 0 ? void 0 : _c.at(result_counter);
+                // @ts-ignore
+                o = new Term((_c = binding.bindings.get(head.o.content)) === null || _c === void 0 ? void 0 : _c.at(result_counter));
             }
             else {
                 o = head.o;
@@ -522,7 +789,7 @@ var TripleStore = /** @class */ (function () {
         return new_heads;
     };
     TripleStore.prototype.materialize = function () {
-        var e_8, _a, e_9, _b, e_10, _c;
+        var e_21, _a, e_22, _b, e_23, _c;
         var inferred = new Array();
         var counter = 0;
         while (counter < this.triple_index.triples.length) {
@@ -531,34 +798,34 @@ var TripleStore = /** @class */ (function () {
                 var matching_rules = this.rules_index.findMatch(process_triple);
                 var new_triples = [];
                 try {
-                    for (var matching_rules_1 = (e_8 = void 0, __values(matching_rules)), matching_rules_1_1 = matching_rules_1.next(); !matching_rules_1_1.done; matching_rules_1_1 = matching_rules_1.next()) {
+                    for (var matching_rules_1 = (e_21 = void 0, __values(matching_rules)), matching_rules_1_1 = matching_rules_1.next(); !matching_rules_1_1.done; matching_rules_1_1 = matching_rules_1.next()) {
                         var rule = matching_rules_1_1.value;
                         var temp_bindings = this.queryWithJoin(rule.body, counter + 1);
                         var new_heads = this.substituteRuleHead(rule.head, temp_bindings);
                         try {
-                            for (var new_heads_1 = (e_9 = void 0, __values(new_heads)), new_heads_1_1 = new_heads_1.next(); !new_heads_1_1.done; new_heads_1_1 = new_heads_1.next()) {
+                            for (var new_heads_1 = (e_22 = void 0, __values(new_heads)), new_heads_1_1 = new_heads_1.next(); !new_heads_1_1.done; new_heads_1_1 = new_heads_1.next()) {
                                 var new_head = new_heads_1_1.value;
                                 new_triples.push(new_head);
                             }
                         }
-                        catch (e_9_1) { e_9 = { error: e_9_1 }; }
+                        catch (e_22_1) { e_22 = { error: e_22_1 }; }
                         finally {
                             try {
                                 if (new_heads_1_1 && !new_heads_1_1.done && (_b = new_heads_1.return)) _b.call(new_heads_1);
                             }
-                            finally { if (e_9) throw e_9.error; }
+                            finally { if (e_22) throw e_22.error; }
                         }
                     }
                 }
-                catch (e_8_1) { e_8 = { error: e_8_1 }; }
+                catch (e_21_1) { e_21 = { error: e_21_1 }; }
                 finally {
                     try {
                         if (matching_rules_1_1 && !matching_rules_1_1.done && (_a = matching_rules_1.return)) _a.call(matching_rules_1);
                     }
-                    finally { if (e_8) throw e_8.error; }
+                    finally { if (e_21) throw e_21.error; }
                 }
                 try {
-                    for (var new_triples_1 = (e_10 = void 0, __values(new_triples)), new_triples_1_1 = new_triples_1.next(); !new_triples_1_1.done; new_triples_1_1 = new_triples_1.next()) {
+                    for (var new_triples_1 = (e_23 = void 0, __values(new_triples)), new_triples_1_1 = new_triples_1.next(); !new_triples_1_1.done; new_triples_1_1 = new_triples_1.next()) {
                         var new_triple = new_triples_1_1.value;
                         if (!this.triple_index.contains(new_triple)) {
                             this.triple_index.add(new_triple);
@@ -566,12 +833,12 @@ var TripleStore = /** @class */ (function () {
                         }
                     }
                 }
-                catch (e_10_1) { e_10 = { error: e_10_1 }; }
+                catch (e_23_1) { e_23 = { error: e_23_1 }; }
                 finally {
                     try {
                         if (new_triples_1_1 && !new_triples_1_1.done && (_c = new_triples_1.return)) _c.call(new_triples_1);
                     }
-                    finally { if (e_10) throw e_10.error; }
+                    finally { if (e_23) throw e_23.error; }
                 }
             }
             counter += 1;
@@ -583,11 +850,19 @@ var TripleStore = /** @class */ (function () {
 var encoder = new Encoder();
 var triple_store = new TripleStore();
 triple_store.add(Triple.from("s1", "p", "o0", encoder));
-for (var i = 0; i < 100000; i++) {
+for (var i = 0; i <= 100000; i++) {
     var triple_head = Triple.from("?s1", "p", "o" + (i + 1), encoder);
     var triple_body1 = Triple.from("?s1", "p", "o" + i, encoder);
     var rule = new Rule(triple_head, [triple_body1]);
     triple_store.add_rule(rule);
+    var triple_head2 = Triple.from("?s1", "p", "i" + (i + 1), encoder);
+    var triple_body21 = Triple.from("?s1", "p", "o" + i, encoder);
+    var rule2 = new Rule(triple_head2, [triple_body21]);
+    triple_store.add_rule(rule2);
+    var triple_head3 = Triple.from("?s1", "p", "j" + (i + 1), encoder);
+    var triple_body31 = Triple.from("?s1", "p", "o" + i, encoder);
+    var rule3 = new Rule(triple_head3, [triple_body31]);
+    triple_store.add_rule(rule3);
 }
 var startTime = performance.now();
 var inferred = triple_store.materialize();

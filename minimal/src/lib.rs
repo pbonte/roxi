@@ -169,19 +169,19 @@ impl <'a> TripleStore <'a>{
             match &query_triple.s{
                 VarOrTerm::Var(s_var)=> bindings.add(&s_var.name,s.as_Term().iri),
                 VarOrTerm::Term(s_term)=>if let (TermImpl{iri}, TermImpl{iri:iri2})= (s_term,s.as_Term()) {
-                    if !iri.eq(iri2){continue;}
+                    if !iri.eq(iri2){break;}
                 }
             }
             match &query_triple.p{
                 VarOrTerm::Var(p_var)=> bindings.add(&p_var.name,p.as_Term().iri),
                 VarOrTerm::Term(p_term)=>if let (TermImpl{iri}, TermImpl{iri:iri2})= (p_term,p.as_Term()) {
-                    if !iri.eq(iri2){continue;}
+                    if !iri.eq(iri2){break;}
                 }
             }
             match &query_triple.o{
                 VarOrTerm::Var(o_var)=> bindings.add(&o_var.name,o.as_Term().iri),
                 VarOrTerm::Term(o_term)=>if let (TermImpl{iri}, TermImpl{iri:iri2})= (o_term,o.as_Term()) {
-                    if !iri.eq(iri2){continue;}
+                    if !iri.eq(iri2){break;}
                 }
             }
         }
@@ -366,7 +366,7 @@ mod tests {
         store.materialize();
         let elapsed = timer.elapsed();
 
-        let result = store.query(&query, None);
+        let result = store.query_with_join(&Vec::from([query]), None);
 
         println!("Processed in: {:.2?}", elapsed);
         println!("Result: {:?}", result);

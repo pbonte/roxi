@@ -6,6 +6,7 @@ extern crate pest_derive;
 extern crate roxi;
 extern crate minimal;
 extern crate env_logger;
+
 use minimal::{Rule, Triple, TripleStore, TermImpl, VarOrTerm, Encoder};
 use minimal::ruleindex::RuleIndex;
 use minimal::tripleindex::TripleIndex;
@@ -42,7 +43,7 @@ use minimal::tripleindex::TripleIndex;
 fn main(){
     let mut rules = Vec::new();
     let mut encoder = Encoder::new();
-    let max_depth = 10000000;
+    let max_depth = 100000;
     for i in 0..max_depth{
         let rule = Rule{head: Triple{s:VarOrTerm::newVar("s".to_string(), &mut encoder),p:VarOrTerm::newTerm("http://test".to_string(), &mut encoder),o:VarOrTerm::newTerm(format!("U{}", i+1), &mut encoder)},
             body: Vec::from([Triple{s:VarOrTerm::newVar("s".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("U{}",i),&mut encoder)}])};
