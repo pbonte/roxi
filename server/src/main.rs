@@ -43,7 +43,9 @@ use minimal::tripleindex::TripleIndex;
 fn main(){
     let mut rules = Vec::new();
     let mut encoder = Encoder::new();
-    let max_depth = 100000;
+    let mut triple_index = TripleIndex::new();
+
+    let max_depth = 3000;
     for i in 0..max_depth{
         let rule = Rule{head: Triple{s:VarOrTerm::newVar("s".to_string(), &mut encoder),p:VarOrTerm::newTerm("http://test".to_string(), &mut encoder),o:VarOrTerm::newTerm(format!("U{}", i+1), &mut encoder)},
             body: Vec::from([Triple{s:VarOrTerm::newVar("s".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("U{}",i),&mut encoder)}])};
@@ -54,15 +56,15 @@ fn main(){
         rules.push(rule);
         rules.push(rule2);
         rules.push(rule3);
+        let content =  Vec::from([Triple{s:VarOrTerm::newTerm(format!("s{}",i),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm("U0".to_string(),&mut encoder)}]);
+        content.into_iter().for_each(|t| triple_index.add(t));
+
     }
 
-    let content =  Vec::from([Triple{s:VarOrTerm::newTerm("sTerm".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm("U0".to_string(),&mut encoder)}]);
     let mut rules_index = RuleIndex::new();
     for rule in rules.iter(){
         rules_index.add(rule);
     }
-    let mut triple_index = TripleIndex::new();
-    content.into_iter().for_each(|t| triple_index.add(t));
     let query = Triple{s:VarOrTerm::newVar("s".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("U{}",max_depth),&mut encoder)};
 
     let mut store = TripleStore{rules:Vec::new(), rules_index , triple_index, encoder };

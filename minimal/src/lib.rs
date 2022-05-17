@@ -282,9 +282,14 @@ impl <'a> TripleStore <'a>{
         let items : Vec<&str> = data.split(" ").collect();
         let s = items.get(0).unwrap();
         let p = items.get(1).unwrap();
-        let mut o_chars= items.get(2).unwrap().chars();
-        o_chars.next_back();
-        let o = o_chars.as_str();
+
+        let o = if items.get(2).unwrap().ends_with("."){
+            let mut o_chars= items.get(2).unwrap().chars();
+            o_chars.next_back();
+            o_chars.as_str()
+        }else{
+            items.get(2).unwrap()
+        };
         let mut convert_item = |item: &&str|{if item.starts_with("?"){VarOrTerm::newVar(item.to_string(),encoder)} else {VarOrTerm::newTerm(item.to_string(),encoder)}};
         let s = convert_item(s);
         let p = convert_item(p);
@@ -339,6 +344,16 @@ mod tests {
         println!("Rules {:?}", rules);
         println!("encoded {:?}", encoder.decoded);
 
+        let mut triple_index = TripleIndex::new();
+        content.into_iter().for_each(|t| triple_index.add(t));
+        let mut rules_index = RuleIndex::new();
+        for rule in rules.iter(){
+            rules_index.add(rule);
+        }
+        let mut store = TripleStore{rules:Vec::new(), rules_index , triple_index, encoder };
+
+        store.materialize();
+        print!("Length: {:?}", store.len());
     }
     #[test]
     fn test_store() {

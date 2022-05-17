@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use crate::{Rule, Triple};
 
+
 pub struct RuleIndex <'a>  {
     spo:Vec<&'a Rule>,
     s:HashMap<usize,  Vec<&'a Rule>>,

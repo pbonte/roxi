@@ -596,26 +596,75 @@ class TripleStore{
 
         return inferred;
     }
+
+    static parse_triple(data: string, encoder: Encoder): Triple{
+        let items = data.trim().split(" ");
+        let s = Triple.createVarOrTerm(items[0].trim(), encoder);
+        let p = Triple.createVarOrTerm(items[1].trim(), encoder);
+        console.log(items);
+        let o = (items[2].trim().endsWith('.'))? Triple.createVarOrTerm(items[2].trim().slice(0,-1), encoder)
+            :Triple.createVarOrTerm(items[2].trim(), encoder);
+        return  Triple.tripleFromEncoded(s,p,o);
+
+    }
+    static remove_first_and_last(value:string): string{
+        return value.slice(1,-1);
+    }
+    static parse(data: string, encoder: Encoder): [Triple[],Rule[]]{
+        let rules = new Array<Rule>();
+        let content = new Array<Triple>();
+        for(let line of data.split("\n")){
+            if(line.includes("=>")) {
+                let rule = line.split("=>");
+                let body = this.remove_first_and_last(rule[0].trim());
+                let head = this.remove_first_and_last(rule[1].trim());
+                let head_triple = this.parse_triple(head, encoder);
+                let body_triples = new Array<Triple>();
+                for (let body_triple of body.split(".")) {
+                    body_triples.push(this.parse_triple(body_triple, encoder));
+                }
+                rules.push(new Rule(head_triple, body_triples));
+            }else{
+                let triple = this.parse_triple(line,encoder);
+                content.push(triple);
+            }
+        }
+        return [content,rules];
+    }
 }
 let encoder = new Encoder();
+//parse test
 
+let data=":a a :A.\n\
+        :b a :B.\n\
+        {?a a :A}=>{?a a :C}\n\
+        {?a a :B}=>{?a a :D}";
+let [content, rules] = TripleStore.parse(data, encoder);
+
+console.log("Content {:?}", content);
+console.log("Rules {:?}", rules);
+console.log("encoded {:?}", encoder.decoded);
 
 let triple_store = new TripleStore();
-triple_store.add(Triple.from("s1","p","o0",encoder));
-for(let i = 0; i < 100000; i++) {
-    let triple_head = Triple.from("?s1", "p", "o"+(i+1), encoder);
-    let triple_body1 = Triple.from("?s1", "p", "o"+i, encoder);
-    let rule = new Rule(triple_head, [triple_body1]);
-    triple_store.add_rule(rule);
-    let triple_head2 = Triple.from("?s1", "p", "i"+(i+1), encoder);
-    let triple_body21 = Triple.from("?s1", "p", "o"+i, encoder);
-    let rule2 = new Rule(triple_head2, [triple_body21]);
-    triple_store.add_rule(rule2);
-    let triple_head3 = Triple.from("?s1", "p", "j"+(i+1), encoder);
-    let triple_body31 = Triple.from("?s1", "p", "o"+i, encoder);
-    let rule3 = new Rule(triple_head3, [triple_body31]);
-    triple_store.add_rule(rule3);
-}
+content.forEach(function(triple){triple_store.add(triple)});
+rules.forEach(function(rule){triple_store.add_rule(rule)});
+
+// for(let i = 0; i < 1; i++) {
+//     triple_store.add(Triple.from("s"+i,"p","o0",encoder));
+//
+//     let triple_head = Triple.from("?s1", "p", "o"+(i+1), encoder);
+//     let triple_body1 = Triple.from("?s1", "p", "o"+i, encoder);
+//     let rule = new Rule(triple_head, [triple_body1]);
+//     triple_store.add_rule(rule);
+//     let triple_head2 = Triple.from("?s1", "p", "i"+(i+1), encoder);
+//     let triple_body21 = Triple.from("?s1", "p", "o"+i, encoder);
+//     let rule2 = new Rule(triple_head2, [triple_body21]);
+//     triple_store.add_rule(rule2);
+//     let triple_head3 = Triple.from("?s1", "p", "j"+(i+1), encoder);
+//     let triple_body31 = Triple.from("?s1", "p", "o"+i, encoder);
+//     let rule3 = new Rule(triple_head3, [triple_body31]);
+//     triple_store.add_rule(rule3);
+// }
 var startTime = performance.now();
 
 let inferred  = triple_store.materialize();
