@@ -22,6 +22,7 @@ profile-with-puffin = ["profiling/profile-with-puffin"]
 
 
 [profile.release]
-debug = true
+lto = true
+opt-level = 3
 
 

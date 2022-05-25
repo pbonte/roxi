@@ -849,7 +849,6 @@ var TripleStore = /** @class */ (function () {
         var items = data.trim().split(" ");
         var s = Triple.createVarOrTerm(items[0].trim(), encoder);
         var p = Triple.createVarOrTerm(items[1].trim(), encoder);
-        console.log(items);
         var o = (items[2].trim().endsWith('.')) ? Triple.createVarOrTerm(items[2].trim().slice(0, -1), encoder)
             : Triple.createVarOrTerm(items[2].trim(), encoder);
         return Triple.tripleFromEncoded(s, p, o);
@@ -900,40 +899,138 @@ var TripleStore = /** @class */ (function () {
         }
         return [content, rules];
     };
+    TripleStore.prototype.decode_triples = function (triples, encoder) {
+        var e_26, _a;
+        var result = "";
+        try {
+            for (var triples_1 = __values(triples), triples_1_1 = triples_1.next(); !triples_1_1.done; triples_1_1 = triples_1.next()) {
+                var triple = triples_1_1.value;
+                var decoded_s = encoder.decode(triple.s.content);
+                var decoded_p = encoder.decode(triple.p.content);
+                var decoded_o = encoder.decode(triple.o.content);
+                result += "".concat(decoded_s, " ").concat(decoded_p, " ").concat(decoded_o, ".");
+            }
+        }
+        catch (e_26_1) { e_26 = { error: e_26_1 }; }
+        finally {
+            try {
+                if (triples_1_1 && !triples_1_1.done && (_a = triples_1.return)) _a.call(triples_1);
+            }
+            finally { if (e_26) throw e_26.error; }
+        }
+        return result;
+    };
+    TripleStore.prototype.content_to_string = function () {
+        var triples = this.triple_index.triples;
+        var encoder = this.encoder;
+        return this.decode_triples(triples, encoder);
+    };
     return TripleStore;
 }());
 var encoder = new Encoder();
 //parse test
-var data = ":a a :A.\n\
-        :b a :B.\n\
-        {?a a :A}=>{?a a :C}\n\
-        {?a a :B}=>{?a a :D}";
-var _a = __read(TripleStore.parse(data, encoder), 2), content = _a[0], rules = _a[1];
-console.log("Content {:?}", content);
-console.log("Rules {:?}", rules);
-console.log("encoded {:?}", encoder.decoded);
-var triple_store = new TripleStore();
-content.forEach(function (triple) { triple_store.add(triple); });
-rules.forEach(function (rule) { triple_store.add_rule(rule); });
-// for(let i = 0; i < 1; i++) {
-//     triple_store.add(Triple.from("s"+i,"p","o0",encoder));
+// let data=":a a :A.\n\
+//         :b a :B.\n\
+//         {?a a :A}=>{?a a :C}\n\
+//         {?a a :B}=>{?a a :D}";
+// let [content, rules] = TripleStore.parse(data, encoder);
 //
-//     let triple_head = Triple.from("?s1", "p", "o"+(i+1), encoder);
-//     let triple_body1 = Triple.from("?s1", "p", "o"+i, encoder);
-//     let rule = new Rule(triple_head, [triple_body1]);
-//     triple_store.add_rule(rule);
-//     let triple_head2 = Triple.from("?s1", "p", "i"+(i+1), encoder);
-//     let triple_body21 = Triple.from("?s1", "p", "o"+i, encoder);
-//     let rule2 = new Rule(triple_head2, [triple_body21]);
-//     triple_store.add_rule(rule2);
-//     let triple_head3 = Triple.from("?s1", "p", "j"+(i+1), encoder);
-//     let triple_body31 = Triple.from("?s1", "p", "o"+i, encoder);
-//     let rule3 = new Rule(triple_head3, [triple_body31]);
-//     triple_store.add_rule(rule3);
-// }
-var startTime = performance.now();
-var inferred = triple_store.materialize();
-console.log("inferred");
-console.log(inferred.length);
-var endTime = performance.now();
-console.log("Call to doSomething took ".concat(endTime - startTime, " milliseconds"));
+// console.log("Content {:?}", content);
+// console.log("Rules {:?}", rules);
+// console.log("encoded {:?}", encoder.decoded);
+//
+// let triple_store = new TripleStore();
+// content.forEach(function(triple){triple_store.add(triple)});
+// rules.forEach(function(rule){triple_store.add_rule(rule)});
+//
+// // for(let i = 0; i < 1; i++) {
+// //     triple_store.add(Triple.from("s"+i,"p","o0",encoder));
+// //
+// //     let triple_head = Triple.from("?s1", "p", "o"+(i+1), encoder);
+// //     let triple_body1 = Triple.from("?s1", "p", "o"+i, encoder);
+// //     let rule = new Rule(triple_head, [triple_body1]);
+// //     triple_store.add_rule(rule);
+// //     let triple_head2 = Triple.from("?s1", "p", "i"+(i+1), encoder);
+// //     let triple_body21 = Triple.from("?s1", "p", "o"+i, encoder);
+// //     let rule2 = new Rule(triple_head2, [triple_body21]);
+// //     triple_store.add_rule(rule2);
+// //     let triple_head3 = Triple.from("?s1", "p", "j"+(i+1), encoder);
+// //     let triple_body31 = Triple.from("?s1", "p", "o"+i, encoder);
+// //     let rule3 = new Rule(triple_head3, [triple_body31]);
+// //     triple_store.add_rule(rule3);
+// // }
+// var startTime = performance.now();
+//
+// let inferred  = triple_store.materialize();
+// console.log("inferred");
+// console.log(inferred.length);
+//
+//
+//
+// var endTime = performance.now();
+//
+// console.log(`Call to doSomething took ${endTime - startTime} milliseconds`);
+function start_experiment(content) {
+    var startTime_load = new Date();
+    var encoder = new Encoder();
+    var _a = __read(TripleStore.parse(content, encoder), 2), triples = _a[0], rules = _a[1];
+    var triple_store = new TripleStore();
+    triples.forEach(function (triple) {
+        triple_store.add(triple);
+    });
+    rules.forEach(function (rule) {
+        triple_store.add_rule(rule);
+    });
+    var endTime_load = new Date();
+    // @ts-ignore
+    var load_time = endTime_load - startTime_load;
+    // @ts-ignore
+    console.log("Load:\t" + load_time + " ms");
+    var startTime = new Date();
+    var results = triple_store.materialize();
+    var endTime = new Date();
+    // @ts-ignore
+    var elapsed = endTime - startTime;
+    console.log("Reasoning:\t" + elapsed + " ms");
+    var startTime_extract = new Date();
+    var output = triple_store.content_to_string();
+    var endTime_extract = new Date();
+    console.log("Content Length:\t" + output.length);
+    console.log("Num Results:\t" + results.length);
+    // @ts-ignore
+    var extract_time = endTime_extract - startTime_extract;
+    console.log("Extraction:\t" + extract_time + " ms");
+    console.log("{\"loadtime\": " + load_time + ", \"processtime\": " + elapsed + ", \"extracttime\": " + extract_time + ", \"depth\": 20, \"num_inds\": 100, \"mode\": \"js_eval2\" }");
+}
+var startHierarchyReasoning = function () {
+    var max_depth = 100000;
+    var num_iters = 2;
+    for (var iter = 0; iter < num_iters; iter++) {
+        var content = ":a a :C0.\n";
+        for (var i = 0; i < max_depth; i++) {
+            content += "{?a a :C" + i + "}=>{?a a :C" + (i + 1) + "}\n";
+            content += "{?a a :C" + i + "}=>{?a a :N" + (i + 1) + "}\n";
+            content += "{?a a :C" + i + "}=>{?a a :J" + (i + 1) + "}\n";
+        }
+        content += "{?a a :C" + (max_depth) + "}=>{?a a :C" + (max_depth + 1) + "}";
+        start_experiment(content);
+    }
+};
+var startJoinReasoning = function () {
+    var max_depth = 25;
+    var num_individuals = 100;
+    var num_iters = 1;
+    for (var iter = 0; iter < num_iters; iter++) {
+        var content = "";
+        for (var ind_it = 0; ind_it < num_individuals; ind_it++) {
+            content += ":a" + ind_it + " a :C0.\n";
+            content += ":a" + ind_it + " a :C1.\n";
+        }
+        for (var i = 0; i < max_depth; i++) {
+            content += "{?a a :C" + i + ".?a a :C" + (i + 1) + " }=>{?a a :C" + (i + 2) + "}\n";
+        }
+        content = content.slice(0, -1);
+        start_experiment(content);
+    }
+};
+startJoinReasoning();

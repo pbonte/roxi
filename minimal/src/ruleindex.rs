@@ -1,25 +1,26 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 use crate::{Rule, Triple};
 
 
-pub struct RuleIndex <'a>  {
-    spo:Vec<&'a Rule>,
-    s:HashMap<usize,  Vec<&'a Rule>>,
-    p:HashMap<usize, Vec<&'a Rule>>,
-    o:HashMap<usize,  Vec<&'a Rule>>,
-    sp:HashMap<usize,  HashMap<usize,Vec<&'a Rule>>>,
-    po:HashMap<usize,  HashMap<usize,Vec<&'a Rule>>>,
-    so:HashMap<usize,  HashMap<usize,Vec<&'a Rule>>>,
+pub struct RuleIndex   {
+    spo:Vec<Rc<Rule>>,
+    s:HashMap<usize,  Vec<Rc<Rule>>>,
+    p:HashMap<usize, Vec<Rc<Rule>>>,
+    o:HashMap<usize, Vec<Rc<Rule>>>,
+    sp:HashMap<usize,  HashMap<usize,Vec<Rc<Rule>>>>,
+    po:HashMap<usize,  HashMap<usize,Vec<Rc<Rule>>>>,
+    so:HashMap<usize,  HashMap<usize,Vec<Rc<Rule>>>>,
 }
 
 
 
-impl<'a>  RuleIndex<'a> {
+impl  RuleIndex {
     pub fn len(&self) -> usize {
         self.spo.len() + self.s.len() + self.o.len() + self.p.len() +
             self.sp.len() + self.po.len() + self.so.len()
     }
-    pub fn new() -> RuleIndex<'a>{
+    pub fn new() -> RuleIndex{
         RuleIndex{s:HashMap::new(),
             p:HashMap::new(),
             o:HashMap::new(),
@@ -28,7 +29,8 @@ impl<'a>  RuleIndex<'a> {
             sp:HashMap::new(),
             spo:Vec::new()}
     }
-    pub fn add(&mut self, rule:  &'a Rule ){
+    pub fn add(&mut self, rule:  & Rule ){
+        let clone_rule = Rc::new(rule.clone());
         for Triple{s ,p,o}  in rule.body.iter(){
             //s match
             if s.is_term() && p.is_var() && o.is_var(){
@@ -36,7 +38,7 @@ impl<'a>  RuleIndex<'a> {
                     self.s.insert(s.to_encoded(), Vec::new());
                 }
                 if let Some(mut rules) = self.s.get_mut(&s.to_encoded()){
-                    if !rules.contains(&rule) {rules.push(rule)};
+                    if !rules.contains(&clone_rule) {rules.push(clone_rule.clone())};
                 }
                 // self.s.get(&s.to_string()).unwrap().push(rule.clone());
             }
@@ -47,7 +49,7 @@ impl<'a>  RuleIndex<'a> {
                 }
                 //self.p.get_mut(&p.to_string()).unwrap().push(rule.clone());
                 if let Some(mut rules) = self.p.get_mut(&p.to_encoded()){
-                    if !rules.contains(&rule) {rules.push(rule)};
+                    if !rules.contains(&clone_rule) {rules.push(clone_rule.clone())};
                 }
             }
             //o match
@@ -57,7 +59,7 @@ impl<'a>  RuleIndex<'a> {
                 }
                 //self.o.get_mut(&o.to_string()).unwrap().push(rule.clone());
                 if let Some(mut rules) = self.o.get_mut(&o.to_encoded()){
-                    if !rules.contains(&rule) {rules.push(rule)};
+                    if !rules.contains(&clone_rule) {rules.push(clone_rule.clone())};
                 }
             }
             //sp
@@ -70,7 +72,7 @@ impl<'a>  RuleIndex<'a> {
                 }
                 //self.sp.get_mut(&sp_str).unwrap().push(rule.clone());
                 if let Some(mut rules) = self.sp.get_mut(&s.to_encoded()).unwrap().get_mut(&p.to_encoded()){
-                    if !rules.contains(&rule) {rules.push(rule)};
+                    if !rules.contains(&clone_rule) {rules.push(clone_rule.clone())};
                 }
             }
             //so
@@ -83,7 +85,7 @@ impl<'a>  RuleIndex<'a> {
                 }
                 //self.sp.get_mut(&sp_str).unwrap().push(rule.clone());
                 if let Some(mut rules) = self.so.get_mut(&s.to_encoded()).unwrap().get_mut(&o.to_encoded()){
-                    if !rules.contains(&rule) {rules.push(rule)};
+                    if !rules.contains(&clone_rule) {rules.push(clone_rule.clone())};
                 }
             }
             //po
@@ -96,13 +98,13 @@ impl<'a>  RuleIndex<'a> {
                 }
                 //self.sp.get_mut(&sp_str).unwrap().push(rule.clone());
                 if let Some(mut rules) = self.po.get_mut(&p.to_encoded()).unwrap().get_mut(&o.to_encoded()){
-                    if !rules.contains(&rule) {rules.push(rule)};
+                    if !rules.contains(&clone_rule) {rules.push(clone_rule.clone())};
                 }
             }
             //spo
             if s.is_var() && p.is_var() && o.is_var() {
                 //self.spo.push(rule.clone());
-                if !self.spo.contains(&rule) {self.spo.push(rule)};
+                if !self.spo.contains(&clone_rule) {self.spo.push(clone_rule.clone())};
 
             }
 

@@ -5,6 +5,7 @@ use crate::ruleindex::RuleIndex;
 use std::collections::HashMap;
 use std::rc::Rc;
 use crate::tripleindex::TripleIndex;
+use std::fmt::Write;
 
 #[derive(Debug,  Clone, Eq, PartialEq)]
 pub enum VarOrTerm{
@@ -85,9 +86,9 @@ pub struct Rule{
     pub body: Vec<Triple>,
     pub head: Triple
 }
-pub struct TripleStore<'a>{
+pub struct TripleStore{
     pub rules: Vec<Rule>,
-    pub rules_index: RuleIndex<'a>,
+    pub rules_index: RuleIndex,
     pub triple_index : TripleIndex,
     pub encoder: Encoder
 }
@@ -152,8 +153,8 @@ impl Binding  {
     }
 
 }
-impl <'a> TripleStore <'a>{
-    pub fn new() -> TripleStore<'a>{
+impl TripleStore {
+    pub fn new() -> TripleStore{
         TripleStore{rules: Vec::new(), rules_index: RuleIndex::new(), triple_index: TripleIndex::new(), encoder: Encoder::new() }
     }
     pub fn add(&mut self, triple: Triple){
@@ -214,6 +215,7 @@ impl <'a> TripleStore <'a>{
             }
             for triple in new_triples{
                 if !self.triple_index.contains(&triple) {
+                    inferred.push(triple.clone());
                     self.triple_index.add(triple);
                 }
             }
@@ -302,7 +304,7 @@ impl <'a> TripleStore <'a>{
         chars.next_back();
         chars.as_str()
     }
-    fn parse( data: String, encoder: &mut Encoder) -> (Vec<Triple>, Vec<Rule>){
+    pub fn parse(data: String, encoder: &mut Encoder) -> (Vec<Triple>, Vec<Rule>){
         let mut rules = Vec::new();
         let mut content = Vec::new();
         //line by line
@@ -327,6 +329,23 @@ impl <'a> TripleStore <'a>{
         (content, rules)
     }
 
+    fn decode_triples(triples: &Vec<Triple>, encoder: &Encoder) -> String {
+        let mut res = String::new();
+        for triple in triples {
+            let decoded_s = encoder.decode(&triple.s.to_encoded()).unwrap();
+            let decoded_p = encoder.decode(&triple.p.to_encoded()).unwrap();
+            let decoded_o = encoder.decode(&triple.o.to_encoded()).unwrap();
+
+            write!(&mut res, "{} {} {}.\n", decoded_s, decoded_p, decoded_o).unwrap();
+        }
+        res
+    }
+    pub fn content_to_string(&mut self) -> String{
+        let content = &self.triple_index.triples;
+        let encoder = &self.encoder;
+        TripleStore::decode_triples(content,encoder)
+    }
+
 }
 #[cfg(test)]
 mod tests {
@@ -334,10 +353,10 @@ mod tests {
     #[test]
     fn test_parse(){
         let mut encoder = Encoder::new();
-        let data=":a a :A.\n\
-        :b a :B.\n\
-        {?a a :A}=>{?a a :C}\n\
-        {?a a :B}=>{?a a :D}";
+        let data=":a a :C0.\n\
+            {?a a :C0}=>{?a a :C1}\n\
+            {?a a :C1}=>{?a a :C2}\n\
+            {?a a :C2}=>{?a a :C3}";
         let (mut content, mut rules) = TripleStore::parse(data.to_string(),&mut encoder);
 
         println!("Content {:?}", content);
@@ -352,8 +371,9 @@ mod tests {
         }
         let mut store = TripleStore{rules:Vec::new(), rules_index , triple_index, encoder };
 
-        store.materialize();
-        print!("Length: {:?}", store.len());
+        let mat = store.materialize();
+        println!("Length: {:?}", store.len());
+        println!("Length Mat: {:?}", mat.len());
     }
     #[test]
     fn test_store() {

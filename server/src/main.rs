@@ -41,11 +41,12 @@ use minimal::tripleindex::TripleIndex;
 // }
 
 fn main(){
+    let timer_load = ::std::time::Instant::now();
     let mut rules = Vec::new();
     let mut encoder = Encoder::new();
     let mut triple_index = TripleIndex::new();
 
-    let max_depth = 3000;
+    let max_depth = 100000;
     for i in 0..max_depth{
         let rule = Rule{head: Triple{s:VarOrTerm::newVar("s".to_string(), &mut encoder),p:VarOrTerm::newTerm("http://test".to_string(), &mut encoder),o:VarOrTerm::newTerm(format!("U{}", i+1), &mut encoder)},
             body: Vec::from([Triple{s:VarOrTerm::newVar("s".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("U{}",i),&mut encoder)}])};
@@ -56,11 +57,11 @@ fn main(){
         rules.push(rule);
         rules.push(rule2);
         rules.push(rule3);
-        let content =  Vec::from([Triple{s:VarOrTerm::newTerm(format!("s{}",i),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm("U0".to_string(),&mut encoder)}]);
-        content.into_iter().for_each(|t| triple_index.add(t));
+
 
     }
-
+    let content =  Vec::from([Triple{s:VarOrTerm::newTerm(format!("s{}",0),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm("U0".to_string(),&mut encoder)}]);
+    content.into_iter().for_each(|t| triple_index.add(t));
     let mut rules_index = RuleIndex::new();
     for rule in rules.iter(){
         rules_index.add(rule);
@@ -68,6 +69,8 @@ fn main(){
     let query = Triple{s:VarOrTerm::newVar("s".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("U{}",max_depth),&mut encoder)};
 
     let mut store = TripleStore{rules:Vec::new(), rules_index , triple_index, encoder };
+    let load_time = timer_load.elapsed();
+    println!("Loaded in: {:.2?}", load_time);
     let timer = ::std::time::Instant::now();
 
     store.materialize();
@@ -78,6 +81,13 @@ fn main(){
     println!("Processed in: {:.2?}", elapsed);
 
     println!("Store size: {:?}", store.len());
+    let timer_extract = ::std::time::Instant::now();
+    let extracted = store.content_to_string();
+    let extract_time = timer_extract.elapsed();
+    println!("Extraction: {:.2?}", extract_time);
+    println!("Content Lenght: {:.2?}", extracted.len());
+    println!("{{\"loadtime\": {:?}, \"processtime\": {:?}, \"extracttime\": {:?}, \"depth\": {:?},  \"mode\": \"server\" }}", load_time.as_millis(), elapsed.as_millis(),extract_time.as_millis(), max_depth);
+
 }
 // fn main_old() {
 //     let args = Args::parse();
