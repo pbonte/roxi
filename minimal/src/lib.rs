@@ -2,12 +2,12 @@ extern crate core;
 pub mod ruleindex;
 pub mod tripleindex;
 use crate::ruleindex::RuleIndex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use crate::tripleindex::TripleIndex;
 use std::fmt::Write;
 
-#[derive(Debug,  Clone, Eq, PartialEq)]
+#[derive(Debug,  Clone, Eq, PartialEq, Hash)]
 pub enum VarOrTerm{
     Var(Variable),
     Term(TermImpl)
@@ -67,21 +67,21 @@ impl VarOrTerm{
         }
     }
 }
-#[derive(Debug,  Clone, Eq, PartialEq)]
+#[derive(Debug,  Clone, Eq, PartialEq, Hash)]
 pub struct Variable{
     name: usize
 }
-#[derive(Debug,  Clone, Eq, PartialEq)]
+#[derive(Debug,  Clone, Eq, PartialEq, Hash)]
 pub struct TermImpl {
     iri: usize
 }
-#[derive(Debug,  Clone, Eq, PartialEq)]
+#[derive(Debug,  Clone, Eq, PartialEq, Hash)]
 pub struct Triple{
     pub s: VarOrTerm,
     pub p: VarOrTerm,
     pub o: VarOrTerm
 }
-#[derive(Debug,  Clone, Eq, PartialEq)]
+#[derive(Debug,  Clone, Eq, PartialEq, Hash)]
 pub struct Rule{
     pub body: Vec<Triple>,
     pub head: Triple
@@ -150,6 +150,24 @@ impl Binding  {
             }
         }
         result
+    }
+    pub fn combine(&mut self, to_combine: Binding) {
+        for (k,v) in to_combine.bindings{
+            if !self.bindings.contains_key(&k){
+                self.bindings.insert(k,Vec::new());
+            }
+            let mut add_vec = self.bindings.get_mut(&k).unwrap();
+            for value in v{
+                add_vec.push(value);
+            }
+        }
+    }
+    pub fn rename(&self, var_subs: Vec<(usize, usize)>) -> Binding {
+        let mut renamed = Binding::new();
+        for (orig_name, new_name) in var_subs{
+            renamed.bindings.insert(new_name,self.bindings.get(&orig_name).unwrap().clone());
+        }
+        renamed
     }
 
 }
@@ -224,6 +242,81 @@ impl TripleStore {
 
         inferred
     }
+    //Backward chaining
+    fn eval_backward(&self, rule_head: &Triple)->Binding{
+        let sub_rules : Vec<(Rc<Rule>, Vec<(usize, usize)>)> = self.find_subrules(rule_head);
+        let mut all_bindings = Binding::new();
+        for (sub_rule,var_subs) in sub_rules.into_iter(){
+            let mut rule_bindings = Binding::new();
+            for rule_atom in &sub_rule.body{
+                let result_bindings = self.triple_index.query(rule_atom,None);
+                rule_bindings = rule_bindings.join(&result_bindings);
+                //recursive call
+                let recursive_bindings = self.eval_backward(rule_atom);
+                rule_bindings.combine(recursive_bindings);
+            }
+            //rename variables
+            let renamed = rule_bindings.rename(var_subs);
+            all_bindings.combine(renamed);
+        }
+        all_bindings
+    }
+    fn eval_backward_csprite(&self, rule_head: &Triple)->(HashSet<Rc<Rule>>, Vec<Vec<Rc<Rule>>>){
+        //TODO check cycles
+        let mut matched_rules = HashSet::new();
+        let mut hierarchies = Vec::new();
+        self.eval_backward_csprite_helper(rule_head,&mut matched_rules,false, &mut hierarchies);
+        (matched_rules, hierarchies)
+    }
+    fn eval_backward_csprite_helper(&self, rule_head: &Triple, matched_rules: &mut HashSet<Rc<Rule>>, hierarchy:bool, hierarchies: &mut Vec<Vec<Rc<Rule>>>){
+        //TODO check cycles
+        let sub_rules : Vec<(Rc<Rule>, Vec<(usize, usize)>)> = self.find_subrules(rule_head);
+        let mut current_hierarchy= false;
+        for (sub_rule,var_subs) in sub_rules.into_iter(){
+            if matched_rules.insert(sub_rule.clone()) {
+                if sub_rule.body.len() == 1{
+                    //hierarchy candidate
+                    if hierarchy{
+                        if let Some(current_hierarchy) = hierarchies.last_mut(){
+                            current_hierarchy.push(sub_rule.clone());
+                        }
+                    }
+                    else{
+                        hierarchies.push(Vec::from([sub_rule.clone()]));
+                    }
+                    current_hierarchy = true;
+                }
+                for rule_atom in &sub_rule.body {
+                    //recursive call
+                   self.eval_backward_csprite_helper(rule_atom,matched_rules,current_hierarchy, hierarchies);
+                }
+            }
+
+        }
+    }
+
+    pub(crate) fn find_subrules(&self, rule_head: &Triple) -> Vec<(Rc<Rule>,Vec<(usize,usize)>)> {
+        let mut rule_matches = Vec::new();
+        for rule in self.rules_index.rules.iter(){
+            let head:&Triple = &rule.head;
+            let mut var_names_subs  :Vec::<(usize,usize)>= Vec::new();
+            if self.eval_triple_element(&head.s, &rule_head.s, &mut var_names_subs) &&
+                self.eval_triple_element(&head.p,&rule_head.p,&mut var_names_subs) &&
+                self.eval_triple_element(&head.o,&rule_head.o,&mut var_names_subs) {
+                rule_matches.push((rule.clone(), var_names_subs));
+            }
+        }
+        rule_matches
+    }
+    fn eval_triple_element(&self, left: &VarOrTerm, right:&VarOrTerm,   var_names_sub: &mut Vec<(usize, usize)>) -> bool{
+        if let (VarOrTerm::Var(left_name) ,VarOrTerm::Var(right_name))= (left,right) {
+            var_names_sub.push((left_name.name, right_name.name));
+            true
+        }else{
+            left.eq(right)
+        }
+    }
+    ////
     fn subsititue_rule_head(&self, head: &Triple, binding: &Binding) ->Vec<Triple>{
         let mut new_heads = Vec::new();
         let mut s: &usize;
@@ -317,7 +410,9 @@ impl TripleStore {
                 let head_triple = Self::parse_triple(head,encoder);
                 let mut body_triples = Vec::new();
                 for body_triple in body.split("."){
-                    body_triples.push(Self::parse_triple(body_triple, encoder));
+                    if body_triple.len() >0 {
+                        body_triples.push(Self::parse_triple(body_triple, encoder));
+                    }
                 }
                 rules.push(Rule{head:head_triple,body:body_triples})
             }else{
@@ -349,6 +444,8 @@ impl TripleStore {
 }
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+    use std::rc::Rc;
     use crate::{Rule, Triple, TripleStore, TermImpl, VarOrTerm, RuleIndex, TripleIndex, Encoder};
     #[test]
     fn test_parse(){
@@ -375,6 +472,8 @@ mod tests {
         println!("Length: {:?}", store.len());
         println!("Length Mat: {:?}", mat.len());
     }
+
+
     #[test]
     fn test_store() {
         let timer = ::std::time::Instant::now();
@@ -420,4 +519,150 @@ mod tests {
         assert_eq!("http://test/2",dedocded2_2.unwrap());
         assert_eq!(2,encoded3);
     }
+    #[test]
+    fn test_eval_backward_rule(){
+        let mut encoder = Encoder::new();
+        let data="<http://example2.com/a> a test:SubClass.\n\
+                <http://example2.com/a> test:hasRef <http://example2.com/b>.\n\
+                <http://example2.com/b> test:hasRef <http://example2.com/c>.\n\
+                <http://example2.com/c> a test:SubClass.\n\
+            {?s a test:SubClass.}=>{?s a test:SubClass2.}\n
+            {?s a test:SubClass2.?s test:hasRef ?b.?b test:hasRef ?c.?c a test:SubClass2.}=>{?s a test:SuperType.}";
+        let (mut content, mut rules) = TripleStore::parse(data.to_string(),&mut encoder);
+
+        println!("Content {:?}", content);
+        println!("Rules {:?}", rules);
+
+
+        let mut triple_index = TripleIndex::new();
+        content.into_iter().for_each(|t| triple_index.add(t));
+        let mut rules_index = RuleIndex::new();
+        for rule in rules.iter(){
+            rules_index.add(rule);
+        }
+        let backward_head = Triple{s:VarOrTerm::newVar("?newVar".to_string(),&mut encoder),p:VarOrTerm::newTerm("a".to_string(),&mut encoder),o:VarOrTerm::newTerm("test:SuperType".to_string(),&mut encoder)};
+        let var_encoded= encoder.add("?newVar".to_string());
+        let result_encoded = encoder.add("<http://example2.com/a>".to_string());
+        println!("encoded {:?}", encoder.decoded);
+        let mut store = TripleStore{rules:rules, rules_index , triple_index, encoder };
+        //        let backward_head = ReasonerTriple::new("?newVar".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperType".to_string());
+
+        let  bindings = store.eval_backward( &backward_head);
+        let result_bindings = HashMap::from([
+            (var_encoded, Vec::from([result_encoded]))
+        ]);
+        println!("{:?}",bindings);
+        assert_eq!(result_bindings, bindings.bindings);
+    }
+    #[test]
+    fn test_find_backward_rules(){
+        let mut encoder = Encoder::new();
+        let data="<http://example2.com/a> a test:SubClass.\n\
+                <http://example2.com/a> test:hasRef <http://example2.com/b>.\n\
+                <http://example2.com/b> test:hasRef <http://example2.com/c>.\n\
+                <http://example2.com/c> a test:SubClass.\n\
+            {?s a test:SubClass.}=>{?s a test:SubClass2.}\n\
+            {?s a test:SubClass2.}=>{?s a test:SubClass.}\n\
+            {?s a test:SubClass0.}=>{?s a test:SubClass2.}\n\
+            {?s a test:SubClass01.}=>{?s a test:SubClass0.}\n\
+            {?s a test:SubClassH1.}=>{?s a test:SubClassH.}\n\
+            {?s a test:SubClassH2.}=>{?s a test:SubClassH1.}\n\
+            {?s a test:SubClassH22.}=>{?s a test:SubClassH1.}\n\
+            {?s a test:SubClass2.?s test:hasRef ?b.?b test:hasRef ?c.?c a test:SubClassH.}=>{?s a test:SuperType.}\n\
+            {?super a test:SuperType.}=>{?super a test:SuperType3.}";
+        let (mut content, mut rules) = TripleStore::parse(data.to_string(),&mut encoder);
+
+        println!("Content {:?}", content);
+        println!("Rules {:?}", rules);
+
+
+        let mut triple_index = TripleIndex::new();
+        content.into_iter().for_each(|t| triple_index.add(t));
+        let mut rules_index = RuleIndex::new();
+        for rule in rules.iter(){
+            rules_index.add(rule);
+        }
+        let backward_head = Triple{s:VarOrTerm::newVar("?newVar".to_string(),&mut encoder),p:VarOrTerm::newTerm("a".to_string(),&mut encoder),o:VarOrTerm::newTerm("test:SuperType".to_string(),&mut encoder)};
+        let var_encoded= encoder.add("?newVar".to_string());
+        let result_encoded = encoder.add("<http://example2.com/a>".to_string());
+        println!("encoded {:?}", encoder.decoded);
+        let mut store = TripleStore{rules:rules, rules_index , triple_index, encoder };
+        //        let backward_head = ReasonerTriple::new("?newVar".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperType".to_string());
+
+        let  (backward_rules, hierarcies) = store.eval_backward_csprite( &backward_head);
+        println!("{:?}",backward_rules);
+        println!("{:?}",hierarcies);
+        println!("num hierarchs {:?}",hierarcies.len());
+
+        for hierarchy in hierarcies{
+            let rewritten_hierarchy = rewrite_hierarchy(&hierarchy);
+            println!("Original Hierarchy {:?}",hierarchy);
+            println!("Rewritten Hierarchy {:?}",rewritten_hierarchy);
+        }
+
+
+        assert_eq!(8,backward_rules.len());
+    }
+    fn rewrite_hierarchy(rules: &Vec<Rc<Rule>>) -> Vec<Rule>{
+        let mut new_rules = Vec::new();
+        if rules.len() >0 {
+            let new_head = &rules.get(0).unwrap().head;
+            for rule in rules.iter(){
+                new_rules.push(Rule{body: rule.body.clone(), head: new_head.clone()})
+            }
+        }
+
+        new_rules
+    }
+    #[test]
+    fn test_rewrite_hierarchy_csprite(){
+        let mut encoder = Encoder::new();
+        let data="<http://example2.com/a> a test:SubClass.\n\
+            {?s a test:SubClassH1.}=>{?s a test:SubClassH.}\n\
+            {?s a test:SubClassH2.}=>{?s a test:SubClassH1.}\n\
+            {?s a test:SubClassH3.}=>{?s a test:SubClassH2.}";
+        let (mut content, mut rules) = TripleStore::parse(data.to_string(),&mut encoder);
+        println!("encoded {:?}", encoder.decoded);
+        println!("{:?}",rules);
+
+        let rc_rules = rules.into_iter().map(|x|Rc::new(x)).collect();
+        let rewritten_rules = rewrite_hierarchy(&rc_rules);
+        println!("{:?}",rewritten_rules);
+    }
+    // #[test]
+    // fn test_eval_backward_multiple_rules(){
+    //     let mut store = ReasoningStore::new();
+    //     store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n \
+    //     {?s rdf:type test:SubClass.}=>{?s rdf:type test:SuperType.}\n\
+    //     {?s rdf:type test:SubClass2.}=>{?s rdf:type test:SuperType.}");
+    //     store.load_abox( b"<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .".as_ref());
+    //     store.load_abox( b"<http://example2.com/c> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass2> .".as_ref());
+    //
+    //     // diff variable names
+    //     let backward_head = ReasonerTriple::new("?newVar".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperType".to_string());
+    //     let  bindings = store.eval_backward( &backward_head);
+    //     let mut result_bindings: Binding = Binding::new();
+    //     result_bindings.add("newVar", Term::from(NamedNode::new("http://example2.com/a".to_string()).unwrap()));
+    //     result_bindings.add("newVar", Term::from(NamedNode::new("http://example2.com/c".to_string()).unwrap()));
+    //
+    //     assert_eq!(result_bindings, bindings);
+    // }
+    // #[test]
+    // fn test_eval_backward_nested_rules(){
+    //     let mut store = ReasoningStore::new();
+    //     store.parse_and_add_rule("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n \
+    //     {?s rdf:type test:SubClass. ?s test:hasRef ?o. ?o rdf:type test:SubClass2.}=>{?s rdf:type test:SuperType.}\n\
+    //     {?q rdf:type test:SubClassTemp.}=>{?q rdf:type test:SubClass2.}");
+    //     store.load_abox( b"<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .".as_ref());
+    //     store.load_abox( b"<http://example2.com/b> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClassTemp> .".as_ref());
+    //     store.load_abox( b"<http://example2.com/a> <http://www.test.be/test#hasRef> <http://example2.com/b> .".as_ref());
+    //
+    //     // diff variable names
+    //     let backward_head = ReasonerTriple::new("?newVar".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperType".to_string());
+    //     let  bindings = store.eval_backward( &backward_head);
+    //     let mut result_bindings: Binding = Binding::new();
+    //     result_bindings.add("newVar", Term::from(NamedNode::new("http://example2.com/a".to_string()).unwrap()));
+    //
+    //     assert_eq!(result_bindings, bindings);
+    // }
 }

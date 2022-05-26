@@ -4,6 +4,7 @@ use crate::{Rule, Triple};
 
 
 pub struct RuleIndex   {
+    pub(crate) rules: Vec<Rc<Rule>>,
     spo:Vec<Rc<Rule>>,
     s:HashMap<usize,  Vec<Rc<Rule>>>,
     p:HashMap<usize, Vec<Rc<Rule>>>,
@@ -21,7 +22,9 @@ impl  RuleIndex {
             self.sp.len() + self.po.len() + self.so.len()
     }
     pub fn new() -> RuleIndex{
-        RuleIndex{s:HashMap::new(),
+        RuleIndex{
+            rules: Vec::new(),
+            s:HashMap::new(),
             p:HashMap::new(),
             o:HashMap::new(),
             so:HashMap::new(),
@@ -31,6 +34,7 @@ impl  RuleIndex {
     }
     pub fn add(&mut self, rule:  & Rule ){
         let clone_rule = Rc::new(rule.clone());
+        self.rules.push(clone_rule.clone());
         for Triple{s ,p,o}  in rule.body.iter(){
             //s match
             if s.is_term() && p.is_var() && o.is_var(){

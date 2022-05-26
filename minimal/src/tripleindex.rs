@@ -145,7 +145,7 @@ impl TripleIndex {
         }
         //?s p ?o
         else if(query_triple.s.is_var() & query_triple.p.is_term() & query_triple.o.is_var()){
-            if let Some(indexes) = self.pos.get(&query_triple.o.to_encoded()){
+            if let Some(indexes) = self.pos.get(&query_triple.p.to_encoded()){
                 for (o_key, s_values) in indexes.iter(){
                     for (encoded_match,counter) in s_values.iter(){
                         if(*counter<=counter_check){
