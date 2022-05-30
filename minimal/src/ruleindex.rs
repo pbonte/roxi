@@ -32,9 +32,8 @@ impl  RuleIndex {
             sp:HashMap::new(),
             spo:Vec::new()}
     }
-    pub fn add(&mut self, rule:  & Rule ){
-        let clone_rule = Rc::new(rule.clone());
-        self.rules.push(clone_rule.clone());
+    fn add_rc(&mut self, rule: Rc<Rule>){
+        self.rules.push(rule.clone());
         for Triple{s ,p,o}  in rule.body.iter(){
             //s match
             if s.is_term() && p.is_var() && o.is_var(){
@@ -42,7 +41,7 @@ impl  RuleIndex {
                     self.s.insert(s.to_encoded(), Vec::new());
                 }
                 if let Some(mut rules) = self.s.get_mut(&s.to_encoded()){
-                    if !rules.contains(&clone_rule) {rules.push(clone_rule.clone())};
+                    if !rules.contains(&rule) {rules.push(rule.clone())};
                 }
                 // self.s.get(&s.to_string()).unwrap().push(rule.clone());
             }
@@ -53,7 +52,7 @@ impl  RuleIndex {
                 }
                 //self.p.get_mut(&p.to_string()).unwrap().push(rule.clone());
                 if let Some(mut rules) = self.p.get_mut(&p.to_encoded()){
-                    if !rules.contains(&clone_rule) {rules.push(clone_rule.clone())};
+                    if !rules.contains(&rule) {rules.push(rule.clone())};
                 }
             }
             //o match
@@ -63,7 +62,7 @@ impl  RuleIndex {
                 }
                 //self.o.get_mut(&o.to_string()).unwrap().push(rule.clone());
                 if let Some(mut rules) = self.o.get_mut(&o.to_encoded()){
-                    if !rules.contains(&clone_rule) {rules.push(clone_rule.clone())};
+                    if !rules.contains(&rule) {rules.push(rule.clone())};
                 }
             }
             //sp
@@ -76,7 +75,7 @@ impl  RuleIndex {
                 }
                 //self.sp.get_mut(&sp_str).unwrap().push(rule.clone());
                 if let Some(mut rules) = self.sp.get_mut(&s.to_encoded()).unwrap().get_mut(&p.to_encoded()){
-                    if !rules.contains(&clone_rule) {rules.push(clone_rule.clone())};
+                    if !rules.contains(&rule) {rules.push(rule.clone())};
                 }
             }
             //so
@@ -89,7 +88,7 @@ impl  RuleIndex {
                 }
                 //self.sp.get_mut(&sp_str).unwrap().push(rule.clone());
                 if let Some(mut rules) = self.so.get_mut(&s.to_encoded()).unwrap().get_mut(&o.to_encoded()){
-                    if !rules.contains(&clone_rule) {rules.push(clone_rule.clone())};
+                    if !rules.contains(&rule) {rules.push(rule.clone())};
                 }
             }
             //po
@@ -102,17 +101,21 @@ impl  RuleIndex {
                 }
                 //self.sp.get_mut(&sp_str).unwrap().push(rule.clone());
                 if let Some(mut rules) = self.po.get_mut(&p.to_encoded()).unwrap().get_mut(&o.to_encoded()){
-                    if !rules.contains(&clone_rule) {rules.push(clone_rule.clone())};
+                    if !rules.contains(&rule) {rules.push(rule.clone())};
                 }
             }
             //spo
             if s.is_var() && p.is_var() && o.is_var() {
                 //self.spo.push(rule.clone());
-                if !self.spo.contains(&clone_rule) {self.spo.push(clone_rule.clone())};
+                if !self.spo.contains(&rule) {self.spo.push(rule.clone())};
 
             }
 
         }
+    }
+    pub fn add(&mut self, rule:  & Rule ){
+        let clone_rule = Rc::new(rule.clone());
+        self.add_rc(clone_rule);
     }
 
     pub fn find_match(&self, triple: &Triple) ->Vec<&Rule>{

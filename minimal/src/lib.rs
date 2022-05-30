@@ -93,6 +93,7 @@ pub struct TripleStore{
     pub encoder: Encoder
 }
 
+
 #[derive(Debug,  Clone, Eq, PartialEq)]
 pub struct Binding {
     bindings: HashMap<usize, Vec<usize>>,
@@ -260,6 +261,23 @@ impl TripleStore {
             all_bindings.combine(renamed);
         }
         all_bindings
+    }
+    pub(crate) fn compute_sprite(&mut self, query: &Triple) {
+        let  (backward_rules, hierarcies) = self.eval_backward_csprite( query);
+
+        // new rules
+        let mut new_rules: Vec<Rc<Rule>> = backward_rules.into_iter().filter(|r|r.body.len()>1).collect();
+        for hierarchy in hierarcies{
+            let rewritten_hierarchy = rewrite_hierarchy(&hierarchy);
+            rewritten_hierarchy.into_iter().for_each(|r|new_rules.push(Rc::new(r)));
+        }
+
+        // new rule index
+        let mut parsed_rules_index = RuleIndex::new();
+        for rule in new_rules.iter(){
+            parsed_rules_index.add(rule);
+        }
+        self.rules_index = parsed_rules_index;
     }
     fn eval_backward_csprite(&self, rule_head: &Triple)->(HashSet<Rc<Rule>>, Vec<Vec<Rc<Rule>>>){
         //TODO check cycles
@@ -442,11 +460,22 @@ impl TripleStore {
     }
 
 }
+fn rewrite_hierarchy(rules: &Vec<Rc<Rule>>) -> Vec<Rule>{
+    let mut new_rules = Vec::new();
+    if rules.len() >0 {
+        let new_head = &rules.get(0).unwrap().head;
+        for rule in rules.iter(){
+            new_rules.push(Rule{body: rule.body.clone(), head: new_head.clone()})
+        }
+    }
+
+    new_rules
+}
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
     use std::rc::Rc;
-    use crate::{Rule, Triple, TripleStore, TermImpl, VarOrTerm, RuleIndex, TripleIndex, Encoder};
+    use crate::{Rule, Triple, TripleStore, TermImpl, VarOrTerm, RuleIndex, TripleIndex, Encoder, rewrite_hierarchy};
     #[test]
     fn test_parse(){
         let mut encoder = Encoder::new();
@@ -555,7 +584,7 @@ mod tests {
         assert_eq!(result_bindings, bindings.bindings);
     }
     #[test]
-    fn test_find_backward_rules(){
+    fn test_sprite_compute(){
         let mut encoder = Encoder::new();
         let data="<http://example2.com/a> a test:SubClass.\n\
                 <http://example2.com/a> test:hasRef <http://example2.com/b>.\n\
@@ -588,32 +617,42 @@ mod tests {
         println!("encoded {:?}", encoder.decoded);
         let mut store = TripleStore{rules:rules, rules_index , triple_index, encoder };
         //        let backward_head = ReasonerTriple::new("?newVar".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperType".to_string());
+        assert_eq!(4,store.len());
 
-        let  (backward_rules, hierarcies) = store.eval_backward_csprite( &backward_head);
-        println!("{:?}",backward_rules);
-        println!("{:?}",hierarcies);
-        println!("num hierarchs {:?}",hierarcies.len());
+        store.compute_sprite(&backward_head);
+        store.materialize();
+        assert_eq!(7,store.len());
 
-        for hierarchy in hierarcies{
-            let rewritten_hierarchy = rewrite_hierarchy(&hierarchy);
-            println!("Original Hierarchy {:?}",hierarchy);
-            println!("Rewritten Hierarchy {:?}",rewritten_hierarchy);
-        }
-
-
-        assert_eq!(8,backward_rules.len());
     }
-    fn rewrite_hierarchy(rules: &Vec<Rc<Rule>>) -> Vec<Rule>{
-        let mut new_rules = Vec::new();
-        if rules.len() >0 {
-            let new_head = &rules.get(0).unwrap().head;
-            for rule in rules.iter(){
-                new_rules.push(Rule{body: rule.body.clone(), head: new_head.clone()})
-            }
-        }
+    #[test]
+    fn test_sprite_compute_hierarchy(){
+        let mut encoder = Encoder::new();
+        let data="<http://example2.com/a> a test:SubClass0.\n\
+            {?s a test:SubClass0.}=>{?s a test:SubClass1.}\n\
+            {?s a test:SubClass1.}=>{?s a test:SubClass2.}\n\
+            {?s a test:SubClass2.}=>{?s a test:SubClass3.}\n\
+            {?s a test:SubClass3.}=>{?s a test:SubClass4.}\n\
+            {?s a test:SubClass4.}=>{?s a test:SubClass5.}\n\
+            {?s a test:SubClass5.}=>{?s a test:SuperClass.}";
+        let (mut content, mut rules) = TripleStore::parse(data.to_string(),&mut encoder);
 
-        new_rules
+        let mut triple_index = TripleIndex::new();
+        content.into_iter().for_each(|t| triple_index.add(t));
+        let mut rules_index = RuleIndex::new();
+        for rule in rules.iter(){
+            rules_index.add(rule);
+        }
+        let backward_head = Triple{s:VarOrTerm::newVar("?newVar".to_string(),&mut encoder),p:VarOrTerm::newTerm("a".to_string(),&mut encoder),o:VarOrTerm::newTerm("test:SuperClass".to_string(),&mut encoder)};
+
+        let mut store = TripleStore{rules:rules, rules_index , triple_index, encoder };
+        assert_eq!(1,store.len());
+
+        store.compute_sprite(&backward_head);
+        store.materialize();
+        assert_eq!(2,store.len());
+
     }
+
     #[test]
     fn test_rewrite_hierarchy_csprite(){
         let mut encoder = Encoder::new();
