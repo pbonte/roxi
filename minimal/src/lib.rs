@@ -1,6 +1,7 @@
 extern crate core;
 pub mod ruleindex;
 pub mod tripleindex;
+pub mod imars;
 use crate::ruleindex::RuleIndex;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -281,10 +282,11 @@ impl TripleStore {
     }
     fn eval_backward_csprite(&self, rule_head: &Triple)->(HashSet<Rc<Rule>>, Vec<Vec<Rc<Rule>>>){
         //TODO check cycles
-        let mut matched_rules = HashSet::new();
-        let mut hierarchies = Vec::new();
-        self.eval_backward_csprite_helper(rule_head,&mut matched_rules,false, &mut hierarchies);
-        (matched_rules, hierarchies)
+        // let mut matched_rules = HashSet::new();
+        // let mut hierarchies = Vec::new();
+        // self.eval_backward_csprite_helper(rule_head,&mut matched_rules,false, &mut hierarchies);
+        // (matched_rules, hierarchies)
+        self.eval_backward_csprite_helper_with_stack(rule_head)
     }
     fn eval_backward_csprite_helper(&self, rule_head: &Triple, matched_rules: &mut HashSet<Rc<Rule>>, hierarchy:bool, hierarchies: &mut Vec<Vec<Rc<Rule>>>){
         //TODO check cycles
@@ -311,6 +313,40 @@ impl TripleStore {
             }
 
         }
+    }
+    fn eval_backward_csprite_helper_with_stack(&self, rule_head: &Triple)->(HashSet<Rc<Rule>>, Vec<Vec<Rc<Rule>>>){
+        //TODO check cycles
+        let mut stack = Vec::from([rule_head.clone()]); //TODO add initial size & pointers instead of triples
+        let mut matched_rules = HashSet::new();
+        let mut hierarchies: Vec<Vec<Rc<Rule>>> = Vec::new();
+        let mut hierarchy = false;
+        while !stack.is_empty() {
+            let current_head = stack.pop().unwrap();
+            let sub_rules: Vec<(Rc<Rule>, Vec<(usize, usize)>)> = self.find_subrules(&current_head);
+            let mut current_hierarchy = false;
+            for (sub_rule, var_subs) in sub_rules.into_iter() {
+                if matched_rules.insert(sub_rule.clone()) {
+                    if sub_rule.body.len() == 1 {
+                        //hierarchy candidate
+                        if hierarchy {
+                            if let Some(current_hierarchy) = hierarchies.last_mut() {
+                                current_hierarchy.push(sub_rule.clone());
+                            }
+                        } else {
+                            hierarchies.push(Vec::from([sub_rule.clone()]));
+                        }
+                        current_hierarchy = true;
+                    }
+                    for rule_atom in &sub_rule.body {
+                        //recursive call
+                        //self.eval_backward_csprite_helper(rule_atom,matched_rules,current_hierarchy, hierarchies);
+                        stack.push(rule_atom.clone());
+                        hierarchy = current_hierarchy;
+                    }
+                }
+            }
+        }
+        (matched_rules, hierarchies)
     }
 
     pub(crate) fn find_subrules(&self, rule_head: &Triple) -> Vec<(Rc<Rule>,Vec<(usize,usize)>)> {
@@ -435,8 +471,10 @@ impl TripleStore {
                 rules.push(Rule{head:head_triple,body:body_triples})
             }else{
                 //process triple
-                let triple = Self::parse_triple(line,encoder);
-                content.push(triple);
+                if line.len() > 0 {
+                    let triple = Self::parse_triple(line, encoder);
+                    content.push(triple);
+                }
             }
         }
         (content, rules)
@@ -601,8 +639,8 @@ mod tests {
             {?super a test:SuperType.}=>{?super a test:SuperType3.}";
         let (mut content, mut rules) = TripleStore::parse(data.to_string(),&mut encoder);
 
-        println!("Content {:?}", content);
-        println!("Rules {:?}", rules);
+        //println!("Content {:?}", content);
+        //println!("Rules {:?}", rules);
 
 
         let mut triple_index = TripleIndex::new();
@@ -614,7 +652,7 @@ mod tests {
         let backward_head = Triple{s:VarOrTerm::newVar("?newVar".to_string(),&mut encoder),p:VarOrTerm::newTerm("a".to_string(),&mut encoder),o:VarOrTerm::newTerm("test:SuperType".to_string(),&mut encoder)};
         let var_encoded= encoder.add("?newVar".to_string());
         let result_encoded = encoder.add("<http://example2.com/a>".to_string());
-        println!("encoded {:?}", encoder.decoded);
+        //println!("encoded {:?}", encoder.decoded);
         let mut store = TripleStore{rules:rules, rules_index , triple_index, encoder };
         //        let backward_head = ReasonerTriple::new("?newVar".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"http://www.test.be/test#SuperType".to_string());
         assert_eq!(4,store.len());
@@ -626,15 +664,16 @@ mod tests {
     }
     #[test]
     fn test_sprite_compute_hierarchy(){
+        let timer_load = ::std::time::Instant::now();
+
         let mut encoder = Encoder::new();
-        let data="<http://example2.com/a> a test:SubClass0.\n\
-            {?s a test:SubClass0.}=>{?s a test:SubClass1.}\n\
-            {?s a test:SubClass1.}=>{?s a test:SubClass2.}\n\
-            {?s a test:SubClass2.}=>{?s a test:SubClass3.}\n\
-            {?s a test:SubClass3.}=>{?s a test:SubClass4.}\n\
-            {?s a test:SubClass4.}=>{?s a test:SubClass5.}\n\
-            {?s a test:SubClass5.}=>{?s a test:SuperClass.}";
-        let (mut content, mut rules) = TripleStore::parse(data.to_string(),&mut encoder);
+        let size = 10000;
+        let mut data  = String::new();
+        for i in 0..size{
+            data += &format!("<http://example2.com/a{}> a test:SubClass0.\n",i);
+            data += &format!("{{?s a test:SubClass{}.}}=>{{?s a test:SubClass{}.}}\n",i,(i+1));
+        }
+         let (mut content, mut rules) = TripleStore::parse(data.to_string(),&mut encoder);
 
         let mut triple_index = TripleIndex::new();
         content.into_iter().for_each(|t| triple_index.add(t));
@@ -642,14 +681,21 @@ mod tests {
         for rule in rules.iter(){
             rules_index.add(rule);
         }
-        let backward_head = Triple{s:VarOrTerm::newVar("?newVar".to_string(),&mut encoder),p:VarOrTerm::newTerm("a".to_string(),&mut encoder),o:VarOrTerm::newTerm("test:SuperClass".to_string(),&mut encoder)};
+        let backward_head = Triple{s:VarOrTerm::newVar("?newVar".to_string(),&mut encoder),p:VarOrTerm::newTerm("a".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("test:SubClass{}",size),&mut encoder)};
 
         let mut store = TripleStore{rules:rules, rules_index , triple_index, encoder };
-        assert_eq!(1,store.len());
-
+        let load_time = timer_load.elapsed();
+        println!("Load Time: {:.2?}", load_time);
+        assert_eq!(size,store.len());
+        let timer_load = ::std::time::Instant::now();
         store.compute_sprite(&backward_head);
+        let csprite_time = timer_load.elapsed();
+        println!("CSprite Time: {:.2?}", csprite_time);
+        let timer_load = ::std::time::Instant::now();
         store.materialize();
-        assert_eq!(2,store.len());
+        assert_eq!(2*size,store.len());
+        let load_time = timer_load.elapsed();
+        println!("Materialization Time: {:.2?}", load_time);
 
     }
 

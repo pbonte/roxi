@@ -7,3 +7,7 @@ members =[
 	"minimal",
 	"minimal_js"
 ]
+
+
+#[profile.test]
+#opt-level = 3

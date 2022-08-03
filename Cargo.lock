@@ -319,6 +319,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0afaad2b26fa326569eb264b1363e8ae3357618c43982b3f285f0774ce76b69"
 
 [[package]]
+name = "deepmesa"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f68205f9f2d08a0e23da0d61d1084fd266650b15097897e2b5cabe7c91b8838"
+dependencies = [
+ "deepmesa-collections",
+ "deepmesa-encoding",
+ "deepmesa-lists",
+]
+
+[[package]]
+name = "deepmesa-collections"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a962fa83a8042e6d9ac7de60117b225e265c698b14b18bbf831877514a49515e"
+
+[[package]]
+name = "deepmesa-encoding"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0dca6c4ef5f199c76e1601d342fa207839a0bffa64f91fe31070eb9d1b714389"
+dependencies = [
+ "deepmesa-collections",
+]
+
+[[package]]
+name = "deepmesa-lists"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70203109c3af76a8bbce1aced9c0faa25d2ef5af8fceffa159a98db6186bdfd7"
+
+[[package]]
 name = "digest"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -567,6 +599,9 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 [[package]]
 name = "minimal"
 version = "0.1.0"
+dependencies = [
+ "deepmesa",
+]
 
 [[package]]
 name = "minimal-lexical"
