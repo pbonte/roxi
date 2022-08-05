@@ -7,9 +7,13 @@ extern crate roxi;
 extern crate minimal;
 extern crate env_logger;
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use minimal::{Rule, Triple, TripleStore, TermImpl, VarOrTerm, Encoder};
 use minimal::ruleindex::RuleIndex;
 use minimal::tripleindex::TripleIndex;
+use minimal::imars::{ImarsWindow,SimpleWindowConsumer};
+
 // use oxigraph::sparql::{QueryResults};
 // use roxi::reasoningstore::ReasoningStore;
 // use std::fs::{File, read_to_string};
@@ -39,8 +43,52 @@ use minimal::tripleindex::TripleIndex;
 //     #[clap(short, long)]
 //     trace: Option<bool>,
 // }
+fn create_window(width:i32, slide:i32) -> ImarsWindow<String> {
+    let mut window :ImarsWindow<String> = ImarsWindow::new(width,slide);
+    let consumer = Rc::new(RefCell::new(SimpleWindowConsumer::new()));
+    window.register_consumer(consumer.clone());
+    window
+}
+fn add(window: &mut ImarsWindow<String>, size:i32){
+    for i in 1..size{
+        let t = format!("Dit is een test asdfsadfasfsadfasdfasfdsafsdafdsa {}",i);
+        window.add(t,i);
+        // if i % 1000 == 0 {
+        //     let ten_millis = time::Duration::from_millis(1);
+        //     thread::sleep(ten_millis);
+        // }
+    }
+}
+fn update(window: &mut ImarsWindow<String>, width:i32, size:i32){
+    for i in 1..size{
+
+        if i / width > 0 && (i % width) == width - width/10  {
+
+            let t = format!("Dit is een test asdfsadfasfsadfasdfasfdsafsdafdsa {}",i-width/2);
+            window.add(t,i);
+        }else{
+            let t = format!("Dit is een test asdfsadfasfsadfasdfasfdsafsdafdsa {}",i);
+            window.add(t,i);
+        }
+    }
+}
+use std::env;
+use std::{thread, time};
 
 fn main(){
+    let args: Vec<String> = env::args().collect();
+    println!("{:?}", args);
+
+    let width = args[1].parse::<i32>().unwrap();
+    let slide = args[2].parse::<i32>().unwrap();
+    let size = args[3].parse::<i32>().unwrap();
+    let mut window = create_window(width,slide);
+    let timer = ::std::time::Instant::now();
+    update(&mut window,width,size);
+    let load_time = timer.elapsed();
+    println!("Processed in: {:.2?}", load_time);
+}
+fn main_old(){
     let timer_load = ::std::time::Instant::now();
     let mut rules = Vec::new();
     let mut encoder = Encoder::new();

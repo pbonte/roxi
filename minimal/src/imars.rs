@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use deepmesa::lists::LinkedList;
 use std::cmp;
@@ -14,12 +15,12 @@ pub struct Triple{
 }
 
 pub trait WindowConsumer<T>{
-    fn update(&mut self, new: Vec<(i32,T)>, old: Vec<(i32,T)>);
+    fn update(&mut self, new: Vec<(i32,Rc<T>)>, old: Vec<(i32,Rc<T>)>);
 }
-struct  SimpleWindowConsumer<T>{
+pub struct  SimpleWindowConsumer<T>{
     windows: Vec<Box<ImarsWindow<T>>>,
-    new: Vec<(i32, T)>,
-    old: Vec<(i32, T)>
+    new: Vec<(i32, Rc<T>)>,
+    old: Vec<(i32, Rc<T>)>
 }
 impl <T> SimpleWindowConsumer<T>{
     pub fn new() -> SimpleWindowConsumer<T>{
@@ -28,29 +29,38 @@ impl <T> SimpleWindowConsumer<T>{
 }
 impl <T> WindowConsumer<T> for SimpleWindowConsumer<T> {
 
-    fn update(&mut self, new: Vec<(i32, T)>, old: Vec<(i32, T)>) {
+    fn update(&mut self, new: Vec<(i32, Rc<T>)>, old: Vec<(i32, Rc<T>)>) {
         //println!("Received new: {:?}, old: {:?}", new.len(), old.len());
         self.new = new;
         self.old = old;
     }
 }
 pub struct ImarsWindow<T> {
-     content: LinkedList<(i32,*const T)>,
+     content: LinkedList<(i32, Rc<T>)>,
      consumers: Vec<Rc<RefCell<dyn WindowConsumer<T>>>>,
      width: i32,
      slide: i32,
      time: i32,
-     pending_adds: Vec<(i32,T)>,
-     index: HashMap<T,Node<(i32,T)>>
+     pending_adds: Vec<(i32,Rc<T>)>,
+     index: HashMap<Rc<T>,Node<(i32,Rc<T>)>>
 }
 
-impl<T: Clone> ImarsWindow<T> where T: Eq + Hash + Deref{
-    pub fn new(width: i32, slide: i32) -> ImarsWindow<T>{
+impl<T: Clone> ImarsWindow< T> where T: Eq + Hash{
+    pub fn new(width: i32, slide: i32) -> ImarsWindow< T>{
         ImarsWindow{content: LinkedList::new(), consumers: Vec::new(), width, slide, time: 0, pending_adds: Vec::new(), index: HashMap::new()}
     }
-    pub fn add(&mut self, item:T, ts:i32){
-        self.pending_adds.push((ts,item.clone()));
-        self.add_to_list_and_index(item, ts);
+    pub fn add(&mut self, item:T, ts:i32) {
+
+        let rc_item = Rc::new(item.clone());
+        //check if item is already present
+        if self.index.contains_key(&rc_item) {
+            //update the item
+            self.update(rc_item,ts);
+        } else {
+            //add the item
+            self.pending_adds.push((ts, rc_item.clone()));
+            self.add_to_list_and_index(rc_item, ts);
+        }
         if self.does_window_trigger(ts){
             self.update_window_open_time(ts);
             let old_values = self.progress_time_and_delete_old(&ts);
@@ -63,13 +73,21 @@ impl<T: Clone> ImarsWindow<T> where T: Eq + Hash + Deref{
             );
             self.pending_adds.clear();
         }
-
-
-
-
     }
-    fn add_to_list_and_index(&mut self, item:T, ts:i32){
-        let node_ref = self.content.push_tail((ts,*item));
+    pub fn update(&mut self, item:Rc<T>, ts:i32){
+        if let Some(node) = self.index.get(&item){
+            // cut node from middle
+            if let Some(content) = self.content.pop_node(&node){
+                //add it to end with updated timestamp
+                let updated_node_ref = self.content.push_tail((ts,content.1));
+                //update the index
+                self.index.insert(item,updated_node_ref);
+            }
+
+        }
+    }
+    fn add_to_list_and_index(&mut self, item:Rc<T>, ts:i32){
+        let node_ref = self.content.push_tail((ts,item.clone()));
         //add to index
         self.index.insert(item,node_ref);
     }
@@ -91,12 +109,14 @@ impl<T: Clone> ImarsWindow<T> where T: Eq + Hash + Deref{
         }
         self.time =  residue * self.slide;
     }
-    fn progress_time_and_delete_old(&mut self, ts: &i32) -> Vec<(i32,T)>{
+    fn progress_time_and_delete_old(&mut self, ts: &i32) -> Vec<(i32,Rc<T>)>{
         let mut old_values = Vec::new();
         let mut peek = self.content.front();
         while let Some((timestamp, item)) = peek{
             if *timestamp<= self.get_last_valid_time_for(ts){
                 if let Some(old_val) = self.content.pop_front(){
+                    //remove from index
+                    self.index.remove(&old_val.1);
                     old_values.push(old_val);
                 }
                 peek = self.content.front();
@@ -124,18 +144,18 @@ fn test_new_window(){
 fn test_add_to_window(){
     let mut window :ImarsWindow<i32> = ImarsWindow::new(5,2);
     window.add(100,0);
-    assert_eq!(window.content.front(),Some(&(0,100)));
+    assert_eq!(window.content.front(),Some(&(0,Rc::from(100))));
 }
 
 #[test]
 fn test_window_shift(){
     let mut window :ImarsWindow<i32> = ImarsWindow::new(2,2);
-    window.add_to_list_and_index(100, 0);
-    window.add_to_list_and_index(101, 1);
-    window.add_to_list_and_index(102, 2);
-    window.add_to_list_and_index(103, 3);
+    window.add_to_list_and_index(Rc::from(100), 0);
+    window.add_to_list_and_index(Rc::from(101), 1);
+    window.add_to_list_and_index(Rc::from(102), 2);
+    window.add_to_list_and_index(Rc::from(103), 3);
     window.progress_time_and_delete_old(&3);
-    assert_eq!(window.content.front(),Some(&(2,102)));
+    assert_eq!(window.content.front(),Some(&(2,Rc::from(102))));
 }
 #[test]
 fn test_window_bound_calculation(){
@@ -178,6 +198,39 @@ fn test_consumer(){
     assert_eq!(2,consumer.borrow_mut().old.len());
 }
 #[test]
+fn test_delete(){
+    let mut window :ImarsWindow<i32> = ImarsWindow::new(2,2);
+    let consumer = Rc::new(RefCell::new(SimpleWindowConsumer::new()));
+    window.register_consumer(consumer.clone());
+    assert_eq!(0,consumer.borrow_mut().new.len());
+    window.add(100,0);
+    window.add(101,1);
+    window.add(102,2);
+    window.add(103,3);
+    assert_eq!(2,window.content.len());
+    assert_eq!(2,window.index.len());
+
+    assert_eq!(4,consumer.borrow_mut().new.len());
+    assert_eq!(2,consumer.borrow_mut().old.len());
+}
+
+#[test]
+fn test_update(){
+    let mut window :ImarsWindow<i32> = ImarsWindow::new(4,2);
+    let consumer = Rc::new(RefCell::new(SimpleWindowConsumer::new()));
+    window.register_consumer(consumer.clone());
+    assert_eq!(0,consumer.borrow_mut().new.len());
+    window.add(100,0);
+    window.add(101,1);
+    window.add(102,2);
+    window.add(103,3);
+    assert_eq!(4,window.content.len());
+    assert_eq!(4,window.index.len());
+    window.add(100,4);
+    assert_eq!(4,window.content.len());
+    assert_eq!(4,window.index.len());
+}
+#[test]
 fn test_throughput(){
     let mut window :ImarsWindow<i32> = ImarsWindow::new(1000,10);
     let consumer = Rc::new(RefCell::new(SimpleWindowConsumer::new()));
@@ -192,7 +245,7 @@ fn test_throughput(){
     println!("Elapsed: {:.2?}", elapsed);
 }
 #[test]
-fn test_fastlinkedlist(){
+fn test_imars_throughput(){
     let mut list = LinkedList::<i32>::with_capacity(10);
     list.push_tail(1);
     let middle = list.push_tail(100);
