@@ -1,19 +1,13 @@
-use std::borrow::Borrow;
 use std::cell::RefCell;
 use deepmesa::lists::LinkedList;
 use std::cmp;
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::ops::Deref;
 use std::rc::Rc;
 use deepmesa::lists::linkedlist::Node;
 
-pub struct Triple{
-    s:  String,
-    p: String,
-    o: String
-}
 
+/// A consumer for retrieving new and expired data from the window
 pub trait WindowConsumer<T>{
     fn update(&mut self, new: Vec<(i32,Rc<T>)>, old: Vec<(i32,Rc<T>)>);
 }
@@ -35,6 +29,46 @@ impl <T> WindowConsumer<T> for SimpleWindowConsumer<T> {
         self.old = old;
     }
 }
+
+/// A generic Windowing operator that implements IMaRs functionality.
+///
+/// Each window time-based window and has a width and sliding parameter to define its size.
+/// The window assigner does not duplicate the items in the window across multiple windows but maintains
+/// the state of a single window, adding and remove based on the timestamps.
+/// # Examples
+/// ```
+/// use minimal::imars::ImarsWindow;
+/// let mut window :ImarsWindow<i32> = ImarsWindow::new(2,2);
+/// window.add(100,0);
+/// window.add(101,1);
+/// window.add(102,2);
+/// window.add(103,3);
+/// assert_eq!(2,window.len());
+/// ```
+/// IMaRs allows to update values with newer timestamps (used for reasoning):
+///
+/// ```
+/// use minimal::imars::ImarsWindow;
+/// let mut window :ImarsWindow<i32> = ImarsWindow::new(4,2);
+/// window.add(100,0);
+/// window.add(101,1);
+/// window.add(102,2);
+/// window.add(103,3);
+/// assert_eq!(4,window.len());
+/// window.add(100,4);
+/// assert_eq!(4,window.len());
+/// ```
+/// Consumers can be added to consume the data when the window triggers, i.e. when the temporal bounds
+/// of the window are reached:
+/// ```
+/// use std::cell::RefCell;
+/// use std::rc::Rc;
+/// use minimal::imars::{ImarsWindow, SimpleWindowConsumer};
+///
+/// let mut window :ImarsWindow<i32> = ImarsWindow::new(2,2);
+/// let consumer = Rc::new(RefCell::new(SimpleWindowConsumer::new()));
+/// window.register_consumer(consumer.clone());
+/// ```
 pub struct ImarsWindow<T> {
      content: LinkedList<(i32, Rc<T>)>,
      consumers: Vec<Rc<RefCell<dyn WindowConsumer<T>>>>,
@@ -46,9 +80,14 @@ pub struct ImarsWindow<T> {
 }
 
 impl<T: Clone> ImarsWindow< T> where T: Eq + Hash{
+    /// Creates a new time-based window with a certain width and slide
     pub fn new(width: i32, slide: i32) -> ImarsWindow< T>{
         ImarsWindow{content: LinkedList::new(), consumers: Vec::new(), width, slide, time: 0, pending_adds: Vec::new(), index: HashMap::new()}
     }
+    /// Adds an item to the window and updates its content, this can either be:
+    /// - Add the item to the window and to nothing when the new timestamp does not exceed the bounds of the current window
+    /// - Add the item and update the window, i.e. remove old items that have expired based on their timestamp
+    /// - The item is already in the window but has an updated timestamp, this will update the current item
     pub fn add(&mut self, item:T, ts:i32) {
 
         let rc_item = Rc::new(item.clone());
@@ -74,7 +113,7 @@ impl<T: Clone> ImarsWindow< T> where T: Eq + Hash{
             self.pending_adds.clear();
         }
     }
-    pub fn update(&mut self, item:Rc<T>, ts:i32){
+    fn update(&mut self, item:Rc<T>, ts:i32){
         if let Some(node) = self.index.get(&item){
             // cut node from middle
             if let Some(content) = self.content.pop_node(&node){
@@ -86,6 +125,10 @@ impl<T: Clone> ImarsWindow< T> where T: Eq + Hash{
 
         }
     }
+    /// Returns the length of the content of the window
+    pub fn len(&self) -> usize{
+        self.content.len()
+    }
     fn add_to_list_and_index(&mut self, item:Rc<T>, ts:i32){
         let node_ref = self.content.push_tail((ts,item.clone()));
         //add to index
@@ -93,9 +136,8 @@ impl<T: Clone> ImarsWindow< T> where T: Eq + Hash{
     }
     fn get_last_valid_time_for(&self, new_time: &i32) -> i32{
         cmp::max(0,*new_time - self.width)
-
     }
-    pub fn does_window_trigger(&mut self, ts: i32) -> bool {
+    fn does_window_trigger(&mut self, ts: i32) -> bool {
         if ts > self.time + self.width {
             true
         }else{
@@ -127,6 +169,7 @@ impl<T: Clone> ImarsWindow< T> where T: Eq + Hash{
         }
         old_values
     }
+    /// Adds consumer that can be notified with updates
     pub fn register_consumer(&mut self, consumer: Rc<RefCell<dyn WindowConsumer<T>>>) {
         self.consumers.push(consumer);
     }
@@ -230,38 +273,6 @@ fn test_update(){
     assert_eq!(4,window.content.len());
     assert_eq!(4,window.index.len());
 }
-#[test]
-fn test_throughput(){
-    let mut window :ImarsWindow<i32> = ImarsWindow::new(1000,10);
-    let consumer = Rc::new(RefCell::new(SimpleWindowConsumer::new()));
-    window.register_consumer(consumer.clone());
-    assert_eq!(0,consumer.borrow_mut().new.len());
-    use std::time::Instant;
-    let now = Instant::now();
-    for i in 1..1000{
-        window.add(i,i);
-    }
-    let elapsed = now.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
-}
-#[test]
-fn test_imars_throughput(){
-    let mut list = LinkedList::<i32>::with_capacity(10);
-    list.push_tail(1);
-    let middle = list.push_tail(100);
-    list.push_tail(2);
-    for i in 1..1000000{
-        list.push_back(i);
-    }
 
-// get the value of the node in the middle of the list in O(1)
-// time.
-    assert_eq!(list.node(&middle), Some(&100));
-// remove the middle node in O(1) time
-    list.pop_node(&middle);
-// once the middle node is removed, the handle is invalid
-    assert_eq!(list.node(&middle), None);
-
-}
 
 
