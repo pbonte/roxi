@@ -2,18 +2,21 @@ extern crate core;
 pub mod ruleindex;
 pub mod tripleindex;
 pub mod imars;
+pub mod imars_reasoner;
+pub mod bindings;
 use crate::ruleindex::RuleIndex;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use crate::tripleindex::TripleIndex;
 use std::fmt::Write;
+use crate::bindings::Binding;
 
 #[derive(Debug,  Clone, Eq, PartialEq, Hash)]
 pub enum VarOrTerm{
     Var(Variable),
     Term(TermImpl)
 }
-
+#[derive(Debug)]
 pub struct Encoder{
     encoded: HashMap<String, usize>,
     decoded: HashMap<usize,String>,
@@ -94,91 +97,23 @@ pub struct TripleStore{
     pub encoder: Encoder
 }
 
-
-#[derive(Debug,  Clone, Eq, PartialEq)]
-pub struct Binding {
-    bindings: HashMap<usize, Vec<usize>>,
-}
-impl Binding  {
-    pub fn new() -> Binding {
-        Binding { bindings: HashMap::new() }
-    }
-    pub fn add(& mut self, var_name: &usize, term: usize) {
-        if !self.bindings.contains_key(var_name){
-            self.bindings.insert(*var_name, Vec::new());
-        }
-        let mut binding_values= self.bindings.get_mut(var_name).unwrap();
-        binding_values.push(term);
-    }
-    pub fn len(&self) -> usize{
-        if let Some(values) = self.bindings.values().into_iter().next(){
-            return values.len();
-        }
-        0
-    }
-    pub fn join(& self, join_binding: & Binding) -> Binding {
-        let mut left = self;
-        let mut right = join_binding;
-        if left.len() == 0 {return right.clone();}
-        if right.len() == 0 {return left.clone();}
-        let mut result = Binding::new();
-        if left.len()<right.len(){
-            right = self;
-            left = join_binding;
-        }
-        //find join keys
-        let join_keys:Vec<&usize>= left.bindings.keys().into_iter().filter(|k|right.bindings.contains_key(*k)).collect();
-
-        for left_c in (0..left.len()){
-            for right_c in (0..right.len()){
-                // iterate over all join keys
-                let mut match_keys=true;
-                for join_key in &join_keys{
-                    let left_term = left.bindings.get(*join_key).unwrap().get(left_c).unwrap();
-                    let right_term = right.bindings.get(*join_key).unwrap().get(right_c).unwrap();
-                    if left_term != right_term{
-                        match_keys = false;
-                        break;
-                    }
-                }
-                if match_keys{
-                    left.bindings.keys().into_iter()
-                        .for_each(|k|result.add(k,left.bindings.get(k).unwrap().get(left_c).unwrap().clone()));
-                    //add right data (without the current key
-                    right.bindings.keys().into_iter()
-                        .filter(|k|!left.bindings.contains_key(*k))
-                        .for_each(|k|result.add(k,right.bindings.get(k).unwrap().get(right_c).unwrap().clone()));
-                }
-            }
-        }
-        result
-    }
-    pub fn combine(&mut self, to_combine: Binding) {
-        for (k,v) in to_combine.bindings{
-            if !self.bindings.contains_key(&k){
-                self.bindings.insert(k,Vec::new());
-            }
-            let mut add_vec = self.bindings.get_mut(&k).unwrap();
-            for value in v{
-                add_vec.push(value);
-            }
-        }
-    }
-    pub fn rename(&self, var_subs: Vec<(usize, usize)>) -> Binding {
-        let mut renamed = Binding::new();
-        for (orig_name, new_name) in var_subs{
-            renamed.bindings.insert(new_name,self.bindings.get(&orig_name).unwrap().clone());
-        }
-        renamed
-    }
+impl TripleStore {
 
 }
+
+
 impl TripleStore {
     pub fn new() -> TripleStore{
         TripleStore{rules: Vec::new(), rules_index: RuleIndex::new(), triple_index: TripleIndex::new(), encoder: Encoder::new() }
     }
     pub fn add(&mut self, triple: Triple){
         self.triple_index.add(triple);
+    }
+    pub fn add_ref(&mut self, triple: Rc<Triple>){
+        self.triple_index.add_ref(triple);
+    }
+    pub(crate) fn add_rules(&mut self, rules: Vec<Rule>) {
+        rules.into_iter().for_each(|rule|self.rules_index.add(rule));
     }
     pub fn len(&self) -> usize{
         self.triple_index.len()
@@ -276,7 +211,7 @@ impl TripleStore {
         // new rule index
         let mut parsed_rules_index = RuleIndex::new();
         for rule in new_rules.iter(){
-            parsed_rules_index.add(rule);
+            parsed_rules_index.add_ref(rule);
         }
         self.rules_index = parsed_rules_index;
     }
@@ -378,15 +313,15 @@ impl TripleStore {
         let mut o: &usize;
         for result_counter in 0..binding.len(){
             match &head.s{
-                VarOrTerm::Var(s_var)=> s = binding.bindings.get(&s_var.name).unwrap().get(result_counter).unwrap(),
+                VarOrTerm::Var(s_var)=> s = binding.get(&s_var.name).unwrap().get(result_counter).unwrap(),
                 VarOrTerm::Term(s_term)=> s = &s_term.iri
             }
             match &head.p{
-                VarOrTerm::Var(p_var)=> p = binding.bindings.get(&p_var.name).unwrap().get(result_counter).unwrap(),
+                VarOrTerm::Var(p_var)=> p = binding.get(&p_var.name).unwrap().get(result_counter).unwrap(),
                 VarOrTerm::Term(p_term)=> p = &p_term.iri
             }
             match &head.o{
-                VarOrTerm::Var(o_var)=> o = binding.bindings.get(&o_var.name).unwrap().get(result_counter).unwrap(),
+                VarOrTerm::Var(o_var)=> o = binding.get(&o_var.name).unwrap().get(result_counter).unwrap(),
                 VarOrTerm::Term(o_term)=> o = &o_term.iri
             }
             new_heads.push(Triple{s:VarOrTerm::Term(TermImpl{iri:s.clone()}),p:VarOrTerm::Term(TermImpl{iri:p.clone()}),o:VarOrTerm::Term(TermImpl{iri:o.clone()})})
@@ -531,7 +466,7 @@ mod tests {
         content.into_iter().for_each(|t| triple_index.add(t));
         let mut rules_index = RuleIndex::new();
         for rule in rules.iter(){
-            rules_index.add(rule);
+            rules_index.add_ref(rule);
         }
         let mut store = TripleStore{rules:Vec::new(), rules_index , triple_index, encoder };
 
@@ -556,7 +491,7 @@ mod tests {
         let content =  Vec::from([Triple{s:VarOrTerm::newTerm("sTerm".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm("U0".to_string(),&mut encoder)}]);
         let mut rules_index = RuleIndex::new();
         for rule in rules.iter(){
-            rules_index.add(rule);
+            rules_index.add_ref(rule);
         }
         let mut triple_index = TripleIndex::new();
         content.into_iter().for_each(|t| triple_index.add(t));
@@ -605,7 +540,7 @@ mod tests {
         content.into_iter().for_each(|t| triple_index.add(t));
         let mut rules_index = RuleIndex::new();
         for rule in rules.iter(){
-            rules_index.add(rule);
+            rules_index.add_ref(rule);
         }
         let backward_head = Triple{s:VarOrTerm::newVar("?newVar".to_string(),&mut encoder),p:VarOrTerm::newTerm("a".to_string(),&mut encoder),o:VarOrTerm::newTerm("test:SuperType".to_string(),&mut encoder)};
         let var_encoded= encoder.add("?newVar".to_string());
@@ -619,7 +554,7 @@ mod tests {
             (var_encoded, Vec::from([result_encoded]))
         ]);
         println!("{:?}",bindings);
-        assert_eq!(result_bindings, bindings.bindings);
+        assert_eq!(result_bindings.get(&12), bindings.get(&12));
     }
     #[test]
     fn test_sprite_compute(){
@@ -647,7 +582,7 @@ mod tests {
         content.into_iter().for_each(|t| triple_index.add(t));
         let mut rules_index = RuleIndex::new();
         for rule in rules.iter(){
-            rules_index.add(rule);
+            rules_index.add_ref(rule);
         }
         let backward_head = Triple{s:VarOrTerm::newVar("?newVar".to_string(),&mut encoder),p:VarOrTerm::newTerm("a".to_string(),&mut encoder),o:VarOrTerm::newTerm("test:SuperType".to_string(),&mut encoder)};
         let var_encoded= encoder.add("?newVar".to_string());
@@ -679,7 +614,7 @@ mod tests {
         content.into_iter().for_each(|t| triple_index.add(t));
         let mut rules_index = RuleIndex::new();
         for rule in rules.iter(){
-            rules_index.add(rule);
+            rules_index.add_ref(rule);
         }
         let backward_head = Triple{s:VarOrTerm::newVar("?newVar".to_string(),&mut encoder),p:VarOrTerm::newTerm("a".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("test:SubClass{}",size),&mut encoder)};
 

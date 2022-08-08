@@ -113,7 +113,11 @@ impl  RuleIndex {
 
         }
     }
-    pub fn add(&mut self, rule:  & Rule ){
+    pub fn add(&mut self, rule: Rule){
+        let clone_rule = Rc::new(rule);
+        self.add_rc(clone_rule);
+    }
+    pub fn add_ref(&mut self, rule:  & Rule ){
         let clone_rule = Rc::new(rule.clone());
         self.add_rc(clone_rule);
     }

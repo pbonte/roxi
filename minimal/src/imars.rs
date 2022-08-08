@@ -6,10 +6,9 @@ use std::hash::Hash;
 use std::rc::Rc;
 use deepmesa::lists::linkedlist::Node;
 
-
 /// A consumer for retrieving new and expired data from the window
 pub trait WindowConsumer<T>{
-    fn update(&mut self, new: Vec<(i32,Rc<T>)>, old: Vec<(i32,Rc<T>)>);
+    fn update(&mut self, new: Vec<(i32, Rc<T>)>, old: Vec<(i32, Rc<T>)>, ts: i32);
 }
 pub struct  SimpleWindowConsumer<T>{
     windows: Vec<Box<ImarsWindow<T>>>,
@@ -23,7 +22,7 @@ impl <T> SimpleWindowConsumer<T>{
 }
 impl <T> WindowConsumer<T> for SimpleWindowConsumer<T> {
 
-    fn update(&mut self, new: Vec<(i32, Rc<T>)>, old: Vec<(i32, Rc<T>)>) {
+    fn update(&mut self, new: Vec<(i32, Rc<T>)>, old: Vec<(i32, Rc<T>)>, ts: i32) {
         //println!("Received new: {:?}, old: {:?}", new.len(), old.len());
         self.new = new;
         self.old = old;
@@ -69,6 +68,7 @@ impl <T> WindowConsumer<T> for SimpleWindowConsumer<T> {
 /// let consumer = Rc::new(RefCell::new(SimpleWindowConsumer::new()));
 /// window.register_consumer(consumer.clone());
 /// ```
+
 pub struct ImarsWindow<T> {
      content: LinkedList<(i32, Rc<T>)>,
      consumers: Vec<Rc<RefCell<dyn WindowConsumer<T>>>>,
@@ -107,7 +107,7 @@ impl<T: Clone> ImarsWindow< T> where T: Eq + Hash{
             self.consumers.iter().for_each(|mut item|
                 {
                     let mut reference = item.borrow_mut();
-                    reference.update(self.pending_adds.clone(), old_values.clone());
+                    reference.update(self.pending_adds.clone(), old_values.clone(), ts);
                 }
             );
             self.pending_adds.clear();
@@ -180,7 +180,7 @@ impl<T: Clone> ImarsWindow< T> where T: Eq + Hash{
 #[test]
 fn test_new_window(){
    let mut window :ImarsWindow<i32> = ImarsWindow::new(5,2);
-   assert_eq!(window.content.len(),0);
+   assert_eq!(window.len(),0);
 }
 
 #[test]

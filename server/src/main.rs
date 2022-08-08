@@ -111,7 +111,7 @@ fn main_old(){
     let content =  Vec::from([Triple{s:VarOrTerm::newTerm(format!("s{}",0),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm("U0".to_string(),&mut encoder)}]);
     content.into_iter().for_each(|t| triple_index.add(t));
     let mut rules_index = RuleIndex::new();
-    for rule in rules.iter(){
+    for rule in rules.into_iter(){
         rules_index.add(rule);
     }
     let query = Triple{s:VarOrTerm::newVar("s".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("U{}",max_depth),&mut encoder)};

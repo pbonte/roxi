@@ -33,7 +33,7 @@ impl RustReasoner{
         let mut triple_index = TripleIndex::new();
         content.into_iter().for_each(|t| triple_index.add(t));
         let mut rules_index = RuleIndex::new();
-        for rule in rules.iter(){
+        for rule in rules.into_iter(){
             rules_index.add(rule);
         }
         let mut store = TripleStore{rules:Vec::new(), rules_index , triple_index, encoder };

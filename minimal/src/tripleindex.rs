@@ -25,6 +25,10 @@ impl TripleIndex {
     pub fn new() -> TripleIndex {
        TripleIndex{triples: Vec::new(), spo: HashMap::new(), pos: HashMap::new(), osp: HashMap::new(),counter:0}
     }
+    //todo fix references!
+    pub(crate) fn add_ref(&mut self, triple: Rc<Triple>) {
+        self.add(triple.as_ref().clone());
+    }
     pub fn add(&mut self,  triple:Triple){
 
         if ! self.spo.contains_key(&triple.s.to_encoded()){
