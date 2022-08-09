@@ -8,7 +8,7 @@ use deepmesa::lists::linkedlist::Node;
 
 /// A consumer for retrieving new and expired data from the window
 pub trait WindowConsumer<T>{
-    fn update(&mut self, new: Vec<(i32, Rc<T>)>, old: Vec<(i32, Rc<T>)>, ts: i32);
+    fn update(&mut self, new: Vec<(i32, Rc<T>)>, old: Vec<(i32, Rc<T>)>, ts: i32)-> Vec<T>;
 }
 pub struct  SimpleWindowConsumer<T>{
     windows: Vec<Box<ImarsWindow<T>>>,
@@ -22,10 +22,11 @@ impl <T> SimpleWindowConsumer<T>{
 }
 impl <T> WindowConsumer<T> for SimpleWindowConsumer<T> {
 
-    fn update(&mut self, new: Vec<(i32, Rc<T>)>, old: Vec<(i32, Rc<T>)>, ts: i32) {
+    fn update(&mut self, new: Vec<(i32, Rc<T>)>, old: Vec<(i32, Rc<T>)>, ts: i32) -> Vec<T>{
         //println!("Received new: {:?}, old: {:?}", new.len(), old.len());
         self.new = new;
         self.old = old;
+        Vec::new()
     }
 }
 
@@ -103,13 +104,13 @@ impl<T: Clone> ImarsWindow< T> where T: Eq + Hash{
         if self.does_window_trigger(ts){
             self.update_window_open_time(ts);
             let old_values = self.progress_time_and_delete_old(&ts);
-
-            self.consumers.iter().for_each(|mut item|
-                {
+            let consumers = self.consumers.clone();
+            consumers.iter().for_each(|mut item|{
                     let mut reference = item.borrow_mut();
-                    reference.update(self.pending_adds.clone(), old_values.clone(), ts);
-                }
-            );
+                    let updates = reference.update(self.pending_adds.clone(), old_values.clone(), ts);
+                    updates.into_iter().for_each(|t| self.add(t,ts));
+                });
+
             self.pending_adds.clear();
         }
     }

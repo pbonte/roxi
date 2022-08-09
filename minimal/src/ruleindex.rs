@@ -34,7 +34,7 @@ impl  RuleIndex {
     }
     fn add_rc(&mut self, rule: Rc<Rule>){
         self.rules.push(rule.clone());
-        for Triple{s ,p,o}  in rule.body.iter(){
+        for Triple{s ,p,o,.. }  in rule.body.iter(){
             //s match
             if s.is_term() && p.is_var() && o.is_var(){
                 if !self.s.contains_key(&s.to_encoded()){

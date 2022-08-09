@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
-use crate::{Binding, TermImpl, Triple};
+use crate::{Binding, Encoder, TermImpl, Triple, TripleStore};
 
 pub struct TripleIndex{
     pub triples: Vec<Triple>,
@@ -8,10 +8,6 @@ pub struct TripleIndex{
     pos:HashMap<usize,  HashMap<usize,Vec<(usize,usize)>>>,
     osp:HashMap<usize,  HashMap<usize,Vec<(usize,usize)>>>,
     counter:usize,
-}
-
-impl TripleIndex {
-
 }
 
 
@@ -28,6 +24,28 @@ impl TripleIndex {
     //todo fix references!
     pub(crate) fn add_ref(&mut self, triple: Rc<Triple>) {
         self.add(triple.as_ref().clone());
+    }
+    pub fn remove_ref(&mut  self, triple: Rc<Triple>) {
+        //remove spo
+        if self.spo.contains_key(&triple.s.to_encoded()) &&
+            self.spo.get(&triple.s.to_encoded()).unwrap().contains_key(&triple.p.to_encoded()){
+            let spo_values = self.spo.get_mut(&triple.s.to_encoded()).unwrap().get_mut(&triple.p.to_encoded()).unwrap();
+            spo_values.retain(|(val,counter)| *val != triple.o.to_encoded());
+        }
+        //remove pos
+        if self.pos.contains_key(&triple.p.to_encoded()) &&
+            self.pos.get(&triple.p.to_encoded()).unwrap().contains_key(&triple.o.to_encoded()){
+            let values = self.pos.get_mut(&triple.p.to_encoded()).unwrap().get_mut(&triple.o.to_encoded()).unwrap();
+            values.retain(|(val,counter)| *val != triple.s.to_encoded());
+        }
+        // remove osp
+        if self.osp.contains_key(&triple.o.to_encoded()) &&
+            self.osp.get(&triple.o.to_encoded()).unwrap().contains_key(&triple.s.to_encoded()){
+            let values = self.osp.get_mut(&triple.o.to_encoded()).unwrap().get_mut(&triple.s.to_encoded()).unwrap();
+            values.retain(|(val,counter)| *val != triple.p.to_encoded());
+        }
+        self.triples.retain(|t| *t != *triple);
+        self.counter-=1;
     }
     pub fn add(&mut self,  triple:Triple){
 
@@ -182,4 +200,20 @@ impl TripleIndex {
         matched_binding
     }
 
+}
+
+#[test]
+fn test_remove(){
+    let mut index = TripleIndex::new();
+    let mut encoder = Encoder::new();
+    let data="<http://example2.com/a> a test:SubClass.\n\
+                <http://example2.com/a> test:hasRef <http://example2.com/b>.\n\
+                <http://example2.com/b> test:hasRef <http://example2.com/c>.\n\
+                <http://example2.com/c> a test:SubClass.";
+    let (mut content, mut rules) = TripleStore::parse(data.to_string(),&mut encoder);
+    let  rc_triples: Vec<Rc<Triple>> = content.into_iter().map(|t|Rc::new(t)).collect();
+    rc_triples.iter().for_each(|t|index.add_ref(t.clone()));
+    assert_eq!(4, index.len());
+    index.remove_ref(rc_triples.get(0).unwrap().clone());
+    assert_eq!(3, index.len());
 }

@@ -1,57 +1,58 @@
-use std::borrow::{Borrow, BorrowMut};
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use crate::imars::{ImarsWindow, WindowConsumer};
 use crate::{Encoder, Triple, TripleStore};
 
 
 struct ImarsReasoner {
     store: TripleStore,
-    windows: Vec<Box<ImarsWindow<Triple>>>,
     new: Vec<(i32, Rc<Triple>)>,
     old: Vec<(i32, Rc<Triple>)>,
 }
 impl ImarsReasoner {
     pub fn new() -> ImarsReasoner{
-        ImarsReasoner{ store: TripleStore::new(), windows: Vec::new(), new: vec![], old: vec![] }
+        ImarsReasoner{ store: TripleStore::new(),  new: vec![], old: vec![] }
     }
 }
 
 impl WindowConsumer<Triple> for ImarsReasoner {
 
-    fn update(&mut self, new: Vec<(i32, Rc<Triple>)>, old: Vec<(i32, Rc<Triple>)>, ts: i32) {
+    fn update(&mut self, new: Vec<(i32, Rc<Triple>)>, old: Vec<(i32, Rc<Triple>)>, ts: i32) -> Vec<Triple>{
         println!("Received new: {:?}, old: {:?}", new.len(), old.len());
         new.into_iter().for_each(|(ts, triple)|self.store.add_ref(triple));
-        //self.store.add_ref()
         let mat_triples = self.store.materialize();
         println!("Materialized: {:?}", mat_triples);
-        for window in self.windows.iter_mut(){
-            mat_triples.into_iter().for_each(|t| window.add(t, ts));
-            break;
-        }
+        old.into_iter().for_each(|(ts,t)|self.store.remove_ref(t));
+        mat_triples
     }
 }
 
 #[test]
 fn test_integration(){
+    let mut window = ImarsWindow::new(4, 2);
 
-    let mut encoder = Encoder::new();
-    let data="{?a a :C0}=>{?a a :C1}\n\
+    let data="{?a a :C9}=>{?a a :C10}\n\
             :a a :C0.\n\
             :b a :C1.\n\
             :c a :C2.\n\
             :d a :C3.\n\
             :e a :C4.\n\
             :f a :C5.\n\
-            :g a :C6.";
-    let (mut content, mut rules) = TripleStore::parse(data.to_string(),&mut encoder);
+            :g a :C6.\n\
+            :i a :C7.\n\
+            :j a :C8.\n\
+            :k a :C9.";
     let mut reasoner = ImarsReasoner::new();
+
+    let (mut content, mut rules) = TripleStore::parse(data.to_string(),&mut reasoner.store.encoder);
     reasoner.store.add_rules(rules);
     let mut consumer = Rc::new(RefCell::new(reasoner));
-    let mut window = ImarsWindow::new(4, 2);
     window.register_consumer(consumer.clone());
-    content.into_iter().enumerate().for_each(|(i, t)|window.add(t,i as i32));
+
+
+    content.into_iter().enumerate().for_each(|(i, t)| window.add(t, i as i32));
+
     //contains 4 triples and 1 inferred triple
-    assert_eq!(5,window.len());
+    assert_eq!(5, window.len());
 
 }

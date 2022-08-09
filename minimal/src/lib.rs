@@ -11,12 +11,18 @@ use crate::tripleindex::TripleIndex;
 use std::fmt::Write;
 use crate::bindings::Binding;
 
+#[cfg(not(test))]
+use log::{info, warn,trace}; // Use log crate when building application
+
+#[cfg(test)]
+use std::{println as info, println as warn, println as trace}; // Workaround to use prinltn! for logs.
+
 #[derive(Debug,  Clone, Eq, PartialEq, Hash)]
 pub enum VarOrTerm{
     Var(Variable),
     Term(TermImpl)
 }
-#[derive(Debug)]
+#[derive(Debug,  Clone, Eq, PartialEq)]
 pub struct Encoder{
     encoded: HashMap<String, usize>,
     decoded: HashMap<usize,String>,
@@ -85,6 +91,7 @@ pub struct Triple{
     pub p: VarOrTerm,
     pub o: VarOrTerm
 }
+
 #[derive(Debug,  Clone, Eq, PartialEq, Hash)]
 pub struct Rule{
     pub body: Vec<Triple>,
@@ -97,9 +104,6 @@ pub struct TripleStore{
     pub encoder: Encoder
 }
 
-impl TripleStore {
-
-}
 
 
 impl TripleStore {
@@ -107,17 +111,29 @@ impl TripleStore {
         TripleStore{rules: Vec::new(), rules_index: RuleIndex::new(), triple_index: TripleIndex::new(), encoder: Encoder::new() }
     }
     pub fn add(&mut self, triple: Triple){
+        trace!{"Adding triple: {:?}", self.decode_triple(&triple) }
         self.triple_index.add(triple);
     }
     pub fn add_ref(&mut self, triple: Rc<Triple>){
+        trace!{"Adding triple: {:?}", self.decode_triple(triple.as_ref()) }
         self.triple_index.add_ref(triple);
+    }
+    pub fn remove_ref(&mut self, triple: Rc<Triple>){
+        trace!{"Removing triple: {:?}", self.decode_triple(triple.as_ref()) }
+        self.triple_index.remove_ref(triple);
     }
     pub(crate) fn add_rules(&mut self, rules: Vec<Rule>) {
         rules.into_iter().for_each(|rule|self.rules_index.add(rule));
     }
     pub fn len(&self) -> usize{
         self.triple_index.len()
-}
+    }
+    fn decode_triple(&self, triple:  &Triple) -> String {
+        let s = self.encoder.decode(&triple.s.to_encoded()).unwrap();
+        let p = self.encoder.decode(&triple.p.to_encoded()).unwrap();
+        let o = self.encoder.decode(&triple.o.to_encoded()).unwrap();
+        format!("{} {} {}",s,p,o)
+    }
     pub fn query(&self, query_triple:&Triple, triple_counter : Option<usize>) -> Binding{
         let mut bindings = Binding::new();
         let mut counter = if let Some(size) = triple_counter{size} else {self.triple_index.len()};
@@ -157,8 +173,10 @@ impl TripleStore {
         let mut counter = 0;
         while(counter < self.triple_index.triples.len()){
             let process_quad = self.triple_index.get(counter).unwrap();
+            trace!("Processing: {:?}",self.decode_triple(process_quad));
             //let matching_rules = self.find_matching_rules(process_quad);
             let matching_rules = self.rules_index.find_match(process_quad);
+            trace!("Found Rules: {:?}",matching_rules);
             let mut new_triples = Vec::new();
             for rule in matching_rules{
                 let temp_bindings = self.query_with_join(&rule.body,Some(counter + 1));
