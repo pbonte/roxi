@@ -92,7 +92,7 @@ impl TripleIndex {
             }
         }
     }
-    pub fn query(&self, query_triple: &Triple,triple_counter : Option<usize>)->Binding{
+    pub fn query(&self, query_triple: &Triple,triple_counter : Option<usize>)->Option<Binding>{
         let mut matched_binding = Binding::new();
         let mut counter_check = if let Some(size) = triple_counter{size} else {self.counter};
         //?s p o
@@ -197,7 +197,29 @@ impl TripleIndex {
                 }
             }
         }
-        matched_binding
+        //s p o
+        else if(query_triple.s.is_term() & query_triple.p.is_term() & query_triple.o.is_term()){
+            if let Some(indexes) = self.spo.get(&query_triple.s.to_encoded()){
+                if let Some(indexes2) = indexes.get(&query_triple.p.to_encoded()){
+                    for (encoded_match,counter) in indexes2.iter(){
+                        if(*counter<=counter_check){
+                            if(*encoded_match == query_triple.o.to_encoded()){
+                                // return when triple has been found in knowlege base
+                                return Some(matched_binding);
+                            }
+                        }else{
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if matched_binding.len() > 0{
+            Some(matched_binding)
+        }else{
+            None
+        }
     }
 
 }
@@ -216,4 +238,19 @@ fn test_remove(){
     assert_eq!(4, index.len());
     index.remove_ref(rc_triples.get(0).unwrap().clone());
     assert_eq!(3, index.len());
+}
+
+#[test]
+fn test_query_fact(){
+    let mut index = TripleIndex::new();
+    let mut encoder = Encoder::new();
+    let data=":a a :C.\n\
+                :b a :D.\n\
+                {:a a :C}=>{:a a :D}";
+    let (mut content, mut rules) = TripleStore::parse(data.to_string(),&mut encoder);
+    content.into_iter().for_each(|t|index.add(t));
+    let query = rules.get(0).unwrap().body.get(0).unwrap();
+    let result = index.query(query,None);
+    assert_eq!(true, result.is_some());
+
 }

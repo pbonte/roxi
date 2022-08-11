@@ -154,6 +154,8 @@ impl  RuleIndex {
                 rules.iter().for_each(|r| matched_triples.push(r));
             }
         }
+        //check spo?
+
         self.spo.iter().for_each(|r| matched_triples.push(r));
 
         matched_triples
