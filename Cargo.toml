@@ -7,6 +7,8 @@ members =[
 	"minimal",
 	"minimal_js"
 ]
+[profile.bench]
+debug = true
 
 
 #[profile.test]

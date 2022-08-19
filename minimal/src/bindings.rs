@@ -37,8 +37,8 @@ impl Binding  {
         //find join keys
         let join_keys:Vec<&usize>= left.bindings.keys().into_iter().filter(|k|right.bindings.contains_key(*k)).collect();
 
-        for left_c in (0..left.len()){
-            for right_c in (0..right.len()){
+        for left_c in 0..left.len(){
+            for right_c in 0..right.len(){
                 // iterate over all join keys
                 let mut match_keys=true;
                 for join_key in &join_keys{

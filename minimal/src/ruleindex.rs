@@ -12,6 +12,7 @@ pub struct RuleIndex   {
     sp:HashMap<usize,  HashMap<usize,Vec<Rc<Rule>>>>,
     po:HashMap<usize,  HashMap<usize,Vec<Rc<Rule>>>>,
     so:HashMap<usize,  HashMap<usize,Vec<Rc<Rule>>>>,
+    spo_all:HashMap<usize,  HashMap<usize, HashMap<usize,Vec<Rc<Rule>>>>>,
 }
 
 
@@ -30,7 +31,8 @@ impl  RuleIndex {
             so:HashMap::new(),
             po:HashMap::new(),
             sp:HashMap::new(),
-            spo:Vec::new()}
+            spo:Vec::new(),
+            spo_all: HashMap::new()}
     }
     fn add_rc(&mut self, rule: Rc<Rule>){
         self.rules.push(rule.clone());
@@ -105,6 +107,22 @@ impl  RuleIndex {
                 }
             }
             //spo
+            if s.is_term() && p.is_term() && o.is_term(){
+                if !self.spo_all.contains_key(&s.to_encoded()){
+                    self.spo_all.insert(s.to_encoded(), HashMap::new());
+                }
+                if !self.spo_all.get(&s.to_encoded()).unwrap().contains_key(&p.to_encoded()){
+                    self.spo_all.get_mut(&s.to_encoded()).unwrap().insert(p.to_encoded(), HashMap::new());
+                }
+                if !self.spo_all.get(&s.to_encoded()).unwrap().get(&p.to_encoded()).unwrap().contains_key(&o.to_encoded()){
+                    self.spo_all.get_mut(&s.to_encoded()).unwrap().get_mut(&p.to_encoded()).unwrap().insert(o.to_encoded(), Vec::new());
+                }
+                //self.sp.get_mut(&sp_str).unwrap().push(rule.clone());
+                if let Some(mut rules) = self.spo_all.get_mut(&s.to_encoded()).unwrap().get_mut(&p.to_encoded()).unwrap().get_mut(&o.to_encoded()){
+                    if !rules.contains(&rule) {rules.push(rule.clone())};
+                }
+            }
+            //?s?p?o
             if s.is_var() && p.is_var() && o.is_var() {
                 //self.spo.push(rule.clone());
                 if !self.spo.contains(&rule) {self.spo.push(rule.clone())};
@@ -154,8 +172,14 @@ impl  RuleIndex {
                 rules.iter().for_each(|r| matched_triples.push(r));
             }
         }
-        //check spo?
-
+        //check spo
+        if let Some(s_rules) = self.spo_all.get(&triple.s.to_encoded()){
+            if let Some(p_rules) = s_rules.get(&triple.p.to_encoded()) {
+                if let Some(rules) = p_rules.get(&triple.o.to_encoded()) {
+                    rules.iter().for_each(|r| matched_triples.push(r));
+                }
+            }
+        }
         self.spo.iter().for_each(|r| matched_triples.push(r));
 
         matched_triples

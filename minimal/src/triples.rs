@@ -6,18 +6,24 @@ pub enum VarOrTerm{
     Term(TermImpl)
 }
 impl VarOrTerm{
-    pub fn newTerm(iri:String, encoder: &mut Encoder) -> VarOrTerm{
+    pub fn new_term(iri:String, encoder: &mut Encoder) -> VarOrTerm{
         let  encoded = encoder.add(iri);
         VarOrTerm::Term(TermImpl{iri:encoded})
     }
-    pub  fn newVar(name:String, encoder: &mut Encoder) -> VarOrTerm{
+    pub  fn new_var(name:String, encoder: &mut Encoder) -> VarOrTerm{
         let encoded = encoder.add(name);
         VarOrTerm::Var(Variable{name:encoded})
     }
-    pub(crate) fn as_Term(&self) -> &TermImpl{
+    pub fn new_encoded_term(iri:usize) -> VarOrTerm{
+        VarOrTerm::Term(TermImpl{iri})
+    }
+    pub  fn new_encoded_var(name:usize) -> VarOrTerm{
+        VarOrTerm::Var(Variable{name})
+    }
+    pub(crate) fn as_term(&self) -> &TermImpl{
         if let VarOrTerm::Term(t) = self {t} else{ panic!("Not a term")}
     }
-    fn as_Var(&self) -> &Variable{
+    pub(crate) fn as_var(&self) -> &Variable{
         if let VarOrTerm::Var(v) = self {v} else{ panic!("Not a Var")}
     }
     pub(crate) fn is_var(&self) -> bool{

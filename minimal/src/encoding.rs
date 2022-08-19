@@ -29,13 +29,12 @@ impl Encoder{
 #[test]
 fn test_encoding(){
     let mut encoder = Encoder::new();
-    let encoded1 = encoder.add("http://test/1".to_string());
+    let _encoded1 = encoder.add("http://test/1".to_string());
     let encoded2 = encoder.add("http://test/2".to_string());
     let encoded3 = encoder.add("http://test/3".to_string());
-    let dedocded1 = encoder.decode(&encoded1);
-    let dedocded2 = encoder.decode(&encoded2);
-    let dedocded2_2 = encoder.decode(&encoded2);
-    assert_eq!("http://test/2",dedocded2.unwrap());
-    assert_eq!("http://test/2",dedocded2_2.unwrap());
+    let decoded2 = encoder.decode(&encoded2);
+    let decoded2_again = encoder.decode(&encoded2);
+    assert_eq!("http://test/2", decoded2.unwrap());
+    assert_eq!("http://test/2", decoded2_again.unwrap());
     assert_eq!(2,encoded3);
 }

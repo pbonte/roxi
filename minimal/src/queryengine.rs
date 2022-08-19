@@ -46,3 +46,35 @@ impl QueryEngine for SimpleQueryEngine {
 //     }
 //     bindings
 // }
+// fn find_matching_rules(&self, triple: &Triple) -> Vec<&Rule> {
+//     let mut matching_rules = Vec::new();
+//     for rule in self.rules.iter(){
+//         for body_item in rule.body.iter(){
+//             if let Triple{s,p,o} = triple{
+//                 match &body_item.s{
+//                     VarOrTerm::Term(s_term)=>if let (TermImpl{iri}, TermImpl{iri:iri2})= (s_term,s.as_Term()) {
+//                         if !iri.eq(iri2){break;}
+//                     },
+//                     _ => ()
+//                 }
+//                 match &body_item.p{
+//                     VarOrTerm::Term(p_term)=>if let (TermImpl{iri}, TermImpl{iri:iri2})= (p_term,p.as_Term()) {
+//                         if !iri.eq(iri2){break;}
+//                     },
+//                     _ => ()
+//                 }
+//                 match &body_item.o{
+//                     VarOrTerm::Term(o_term)=>if let (TermImpl{iri}, TermImpl{iri:iri2})= (o_term,o.as_Term()) {
+//                         if !iri.eq(iri2){break;}
+//                     },
+//                     _ => ()
+//                 }
+//                 if !matching_rules.contains(&rule){
+//                     matching_rules.push(rule);
+//
+//                 }
+//             }
+//         }
+//     }
+//     matching_rules
+// }
