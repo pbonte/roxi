@@ -199,11 +199,11 @@ impl TripleIndex {
         }
         //s p o
         else if query_triple.s.is_term() & query_triple.p.is_term() & query_triple.o.is_term() {
-            if let Some(indexes) = self.spo.get(&query_triple.s.to_encoded()){
-                if let Some(indexes2) = indexes.get(&query_triple.p.to_encoded()){
+            if let Some(indexes) = self.osp.get(&query_triple.o.to_encoded()){
+                if let Some(indexes2) = indexes.get(&query_triple.s.to_encoded()){
                     for (encoded_match,counter) in indexes2.iter(){
                         if *counter<=counter_check {
-                            if *encoded_match == query_triple.o.to_encoded() {
+                            if *encoded_match == query_triple.p.to_encoded() {
                                 // return when triple has been found in knowlege base
                                 return Some(matched_binding);
                             }

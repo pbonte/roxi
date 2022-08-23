@@ -9,10 +9,9 @@ extern crate env_logger;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use minimal::{Rule, Triple, TripleStore, TermImpl, VarOrTerm, Encoder};
+use minimal::{TripleStore};
 use minimal::ruleindex::RuleIndex;
 use minimal::tripleindex::TripleIndex;
-use minimal::imars::{ImarsWindow,SimpleWindowConsumer};
 
 // use oxigraph::sparql::{QueryResults};
 // use roxi::reasoningstore::ReasoningStore;
@@ -43,80 +42,19 @@ use minimal::imars::{ImarsWindow,SimpleWindowConsumer};
 //     #[clap(short, long)]
 //     trace: Option<bool>,
 // }
-fn create_window(width:i32, slide:i32) -> ImarsWindow<String> {
-    let mut window :ImarsWindow<String> = ImarsWindow::new(width,slide);
-    let consumer = Rc::new(RefCell::new(SimpleWindowConsumer::new()));
-    window.register_consumer(consumer.clone());
-    window
-}
-fn add(window: &mut ImarsWindow<String>, size:i32){
-    for i in 1..size{
-        let t = format!("Dit is een test asdfsadfasfsadfasdfasfdsafsdafdsa {}",i);
-        window.add(t,i);
-        // if i % 1000 == 0 {
-        //     let ten_millis = time::Duration::from_millis(1);
-        //     thread::sleep(ten_millis);
-        // }
-    }
-}
-fn update(window: &mut ImarsWindow<String>, width:i32, size:i32){
-    for i in 1..size{
-
-        if i / width > 0 && (i % width) == width - width/10  {
-
-            let t = format!("Dit is een test asdfsadfasfsadfasdfasfdsafsdafdsa {}",i-width/2);
-            window.add(t,i);
-        }else{
-            let t = format!("Dit is een test asdfsadfasfsadfasdfasfdsafsdafdsa {}",i);
-            window.add(t,i);
-        }
-    }
-}
-use std::env;
-use std::{thread, time};
 
 fn main(){
-    let args: Vec<String> = env::args().collect();
-    println!("{:?}", args);
-
-    let width = args[1].parse::<i32>().unwrap();
-    let slide = args[2].parse::<i32>().unwrap();
-    let size = args[3].parse::<i32>().unwrap();
-    let mut window = create_window(width,slide);
-    let timer = ::std::time::Instant::now();
-    update(&mut window,width,size);
-    let load_time = timer.elapsed();
-    println!("Processed in: {:.2?}", load_time);
-}
-fn main_old(){
     let timer_load = ::std::time::Instant::now();
-    let mut rules = Vec::new();
-    let mut encoder = Encoder::new();
-    let mut triple_index = TripleIndex::new();
 
     let max_depth = 100000;
-    for i in 0..max_depth{
-        let rule = Rule{head: Triple{s:VarOrTerm::newVar("s".to_string(), &mut encoder),p:VarOrTerm::newTerm("http://test".to_string(), &mut encoder),o:VarOrTerm::newTerm(format!("U{}", i+1), &mut encoder)},
-            body: Vec::from([Triple{s:VarOrTerm::newVar("s".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("U{}",i),&mut encoder)}])};
-        let rule2 = Rule{head: Triple{s:VarOrTerm::newVar("s".to_string(), &mut encoder),p:VarOrTerm::newTerm("http://test".to_string(), &mut encoder),o:VarOrTerm::newTerm(format!("J{}", i+1), &mut encoder)},
-            body: Vec::from([Triple{s:VarOrTerm::newVar("s".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("U{}",i),&mut encoder)}])};
-        let rule3 = Rule{head: Triple{s:VarOrTerm::newVar("s".to_string(), &mut encoder),p:VarOrTerm::newTerm("http://test".to_string(), &mut encoder),o:VarOrTerm::newTerm(format!("Q{}", i+1), &mut encoder)},
-            body: Vec::from([Triple{s:VarOrTerm::newVar("s".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("U{}",i),&mut encoder)}])};
-        rules.push(rule);
-        rules.push(rule2);
-        rules.push(rule3);
-
-
+    let mut data = ":a a :U0\n".to_owned();
+    for i in 0..max_depth {
+        data += format!("{{?a a :U{}}}=>{{?a a :U{}}}\n", i, i + 1).as_str();
+        data += format!("{{?a a :U{}}}=>{{?a a :J{}}}\n", i, i + 1).as_str();
+        data += format!("{{?a a :U{}}}=>{{?a a :Q{}}}\n", i, i + 1).as_str();
     }
-    let content =  Vec::from([Triple{s:VarOrTerm::newTerm(format!("s{}",0),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm("U0".to_string(),&mut encoder)}]);
-    content.into_iter().for_each(|t| triple_index.add(t));
-    let mut rules_index = RuleIndex::new();
-    for rule in rules.into_iter(){
-        rules_index.add(rule);
-    }
-    let query = Triple{s:VarOrTerm::newVar("s".to_string(),&mut encoder),p:VarOrTerm::newTerm("http://test".to_string(),&mut encoder),o:VarOrTerm::newTerm(format!("U{}",max_depth),&mut encoder)};
+    let mut store = TripleStore::from(data.as_str());
 
-    let mut store = TripleStore{rules:Vec::new(), rules_index , triple_index, encoder };
     let load_time = timer_load.elapsed();
     println!("Loaded in: {:.2?}", load_time);
     let timer = ::std::time::Instant::now();
@@ -124,7 +62,6 @@ fn main_old(){
     store.materialize();
     let elapsed = timer.elapsed();
 
-    let result = store.query(&query, None);
 
     println!("Processed in: {:.2?}", elapsed);
 

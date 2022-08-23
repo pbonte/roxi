@@ -9,8 +9,13 @@ deepmesa = "0.9.0"
 bencher = "0.1.5"
 log = { version = "0.4"}
 env_logger = "0.9.0"
+spargebra = "0.2.2"
 
 
 [[bench]]
 name = "bench"
+harness = false
+
+[[bench]]
+name = "hierarchies"
 harness = false

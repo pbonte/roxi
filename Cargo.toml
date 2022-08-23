@@ -3,13 +3,11 @@
 members =[
 	"lib",
 	"server",
-	"js",
-	"minimal",
-	"minimal_js"
+	"minimal"
 ]
 [profile.bench]
 debug = true
-
+opt-level = 3
 
 #[profile.test]
 #opt-level = 3

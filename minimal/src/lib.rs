@@ -14,6 +14,7 @@ pub mod csprite;
 pub mod observer;
 pub mod time_window;
 pub mod pipeline;
+pub mod sparql;
 use crate::ruleindex::RuleIndex;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -40,7 +41,7 @@ pub struct TripleStore{
     pub rules_index: RuleIndex,
     pub triple_index : TripleIndex,
     pub encoder: Encoder,
-    reasoner: Reasoner
+    pub reasoner: Reasoner
 }
 
 
@@ -272,6 +273,35 @@ mod tests {
         store.materialize();
         assert_eq!(55,store.len());
     }
+    #[test]
+    fn test_hierarchy(){
+        let max_depth = 10;
+        let mut data = ":a a :U0\n".to_owned();
+        for i in 0..max_depth {
+            data += format!("{{?a a :U{}}}=>{{?a a :U{}}}\n", i, i + 1).as_str();
+            data += format!("{{?a a :U{}}}=>{{?a a :J{}}}\n", i, i + 1).as_str();
+            data += format!("{{?a a :U{}}}=>{{?a a :Q{}}}\n", i, i + 1).as_str();
+        }
+        println!("{}", data);
+        let mut store = TripleStore::from(data.as_str());
+        let inferred = store.materialize();
+        println!("Triples: {:?}", store.len());
+        assert_eq!(3 * max_depth, inferred.len());
+    }
+    #[test]
+    fn test_rdf_hierarchy(){
+        let max_depth = 10;
+        let mut data = ":a a :U0\n\
+                        {?a :subClassOf ?b.?b :subClassOf ?c}=>{?a :subClassOf ?c}\n".to_owned();
+        for i in 0..max_depth {
+            data += format!(":U{} :subClassOf :U{}.\n", i, i + 1).as_str();
+            data += format!(":U{} :subClassOf :J{}.\n", i, i + 1).as_str();
+            data += format!(":U{} :subClassOf :Q{}.\n", i, i + 1).as_str();
+        }
+        let mut store = TripleStore::from(data.as_str());
+        let inferred = store.materialize();
+        println!("Triples: {:?}", store.len());
+        assert_eq!(3 * max_depth, inferred.len());    }
     // #[test]
     // fn test_eval_backward_multiple_rules(){
     //     let mut store = ReasoningStore::new();

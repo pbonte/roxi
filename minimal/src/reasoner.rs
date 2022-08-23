@@ -21,7 +21,7 @@ impl Reasoner{
             //trace!("Processing: {:?}",decode_triple(process_quad));
             //let matching_rules = self.find_matching_rules(process_quad);
             let matching_rules = rules_index.find_match(process_quad);
-            let matching_rules : Vec<Rule> = matching_rules.into_iter().flat_map(|r|Self::substitute_rule(process_quad,r)).collect();
+            let matching_rules : Vec<Rule> = matching_rules.clone().into_iter().flat_map(|r|Self::substitute_rule(process_quad,r)).collect();
             trace!("Found Rules: {:?}",matching_rules);
             let mut new_triples = Vec::new();
             for rule in matching_rules{
