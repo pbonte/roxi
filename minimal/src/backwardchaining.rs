@@ -23,6 +23,7 @@ impl BackwardChainer {
         }
         all_bindings
     }
+    //todo create index on rule heads
     pub(crate) fn find_subrules(rules_index: &RuleIndex, rule_head: &Triple) -> Vec<(Rc<Rule>, Vec<(usize, usize)>)> {
         let mut rule_matches = Vec::new();
         for rule in rules_index.rules.iter() {

@@ -15,6 +15,8 @@ pub mod observer;
 pub mod time_window;
 pub mod pipeline;
 pub mod sparql;
+pub mod dred;
+pub mod utils;
 use crate::ruleindex::RuleIndex;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -71,7 +73,7 @@ impl TripleStore {
     }
     pub fn remove_ref(&mut self, triple: Rc<Triple>){
         trace!{"Removing triple: {:?}", self.decode_triple(triple.as_ref()) }
-        self.triple_index.remove_ref(triple);
+        self.triple_index.remove_ref(&triple);
     }
     pub(crate) fn add_rules(&mut self, rules: Vec<Rule>) {
         rules.into_iter().for_each(|rule|self.rules_index.add(rule));
@@ -289,6 +291,7 @@ mod tests {
         assert_eq!(3 * max_depth, inferred.len());
     }
     #[test]
+    #[ignore]
     fn test_rdf_hierarchy(){
         let max_depth = 10;
         let mut data = ":a a :U0\n\

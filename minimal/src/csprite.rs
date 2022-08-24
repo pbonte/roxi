@@ -38,7 +38,7 @@ impl CSprite{
         let old_items = self.imars.remove_old_elements(last_ts);
         println!("Deleting expired: {:?}",Self::decode_triples(&old_items,&self.encoder));
 
-        old_items.into_iter().for_each(|(_ts,item)|self.triple_index.remove_ref(item));
+        old_items.into_iter().for_each(|(_ts,item)|self.triple_index.remove_ref(&item));
 
         //add new data
 
@@ -74,7 +74,7 @@ impl CSprite{
     }
     pub fn remove_ref(&mut self, triple: Rc<Triple>){
         trace!{"Removing triple: {:?}", self.decode_triple(triple.as_ref()) }
-        self.triple_index.remove_ref(triple);
+        self.triple_index.remove_ref(&triple);
     }
     pub fn add_rules(&mut self, rules: Vec<Rule>) {
         rules.into_iter().for_each(|rule|self.rules_index.add(rule));

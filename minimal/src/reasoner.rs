@@ -23,16 +23,7 @@ impl Reasoner{
             let matching_rules = rules_index.find_match(process_quad);
             let matching_rules : Vec<Rule> = matching_rules.clone().into_iter().flat_map(|r|Self::substitute_rule(process_quad,r)).collect();
             trace!("Found Rules: {:?}",matching_rules);
-            let mut new_triples = Vec::new();
-            for rule in matching_rules{
-                if let Some(temp_bindings) = SimpleQueryEngine::query(triple_index, &rule.body,Some(counter + 1)) {
-                    let new_heads = Reasoner::substitute_head_with_bindings(&rule.head, &temp_bindings);
-
-                    for new_head in new_heads {
-                        new_triples.push(new_head);
-                    }
-                }
-            }
+            let new_triples = Self::infer_rule_heads(triple_index, Some(counter+1), matching_rules);
             for triple in new_triples{
                 if !triple_index.contains(&triple) {
                    // trace!("Inferred: {:?}",self.decode_triple(&triple));
@@ -44,6 +35,20 @@ impl Reasoner{
         }
 
         inferred
+    }
+
+    pub fn infer_rule_heads(triple_index: &TripleIndex, counter: Option<usize>, matching_rules: Vec<Rule>) -> Vec<Triple> {
+        let mut new_triples = Vec::new();
+        for rule in matching_rules {
+            if let Some(temp_bindings) = SimpleQueryEngine::query(triple_index, &rule.body, counter) {
+                let new_heads = Reasoner::substitute_head_with_bindings(&rule.head, &temp_bindings);
+
+                for new_head in new_heads {
+                    new_triples.push(new_head);
+                }
+            }
+        }
+        new_triples
     }
 
     fn substitute_head_with_bindings(head: &Triple, binding: &Binding) ->Vec<Triple>{
@@ -104,7 +109,7 @@ impl Reasoner{
 
         new_heads
     }
-    fn substitute_rule(matching_triple: &Triple, matching_rule: &Rule) -> Vec<Rule> {
+    pub fn substitute_rule(matching_triple: &Triple, matching_rule: &Rule) -> Vec<Rule> {
         let mut results = Vec::new();
         for body_triple in matching_rule.body.iter() {
             if let Some(bindings) = query(body_triple, matching_triple) {
@@ -113,16 +118,21 @@ impl Reasoner{
                 }else if bindings.len() == 0{
                     return vec![matching_rule.clone()];
                 }
-                let mut new_body = Vec::new();
-                for body_triple_subs in matching_rule.body.iter() {
-                    let substituted = Reasoner::substitute_triple_with_bindings(body_triple_subs, &bindings);
-                    new_body.push(substituted.get(0).unwrap().clone());
-                }
+                let new_body = Self::substitute_rule_body_with_binding(matching_rule, &bindings);
                 let new_head = Reasoner::substitute_triple_with_bindings(&matching_rule.head, &bindings).get(0).unwrap().clone();
                 results.push(Rule { body: new_body, head: new_head });
             }
         }
         results
+    }
+
+    pub fn substitute_rule_body_with_binding(matching_rule: &Rule, bindings: &Binding) -> Vec<Triple> {
+        let mut new_body = Vec::new();
+        for body_triple_subs in matching_rule.body.iter() {
+            let substituted = Reasoner::substitute_triple_with_bindings(body_triple_subs, &bindings);
+            new_body.push(substituted.get(0).unwrap().clone());
+        }
+        new_body
     }
 }
 pub struct CSpriteReasoner;

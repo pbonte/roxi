@@ -25,7 +25,7 @@ impl TripleIndex {
     pub(crate) fn add_ref(&mut self, triple: Rc<Triple>) {
         self.add(triple.as_ref().clone());
     }
-    pub fn remove_ref(&mut  self, triple: Rc<Triple>) {
+    pub fn remove_ref(&mut  self, triple: &Triple) {
         //remove spo
         if self.spo.contains_key(&triple.s.to_encoded()) &&
             self.spo.get(&triple.s.to_encoded()).unwrap().contains_key(&triple.p.to_encoded()){
@@ -243,7 +243,7 @@ fn test_remove(){
     let  rc_triples: Vec<Rc<Triple>> = content.into_iter().map(|t|Rc::new(t)).collect();
     rc_triples.iter().for_each(|t|index.add_ref(t.clone()));
     assert_eq!(4, index.len());
-    index.remove_ref(rc_triples.get(0).unwrap().clone());
+    index.remove_ref(&rc_triples.get(0).unwrap().clone());
     assert_eq!(3, index.len());
 }
 
