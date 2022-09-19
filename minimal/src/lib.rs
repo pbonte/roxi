@@ -17,6 +17,9 @@ pub mod pipeline;
 pub mod sparql;
 pub mod dred;
 pub mod utils;
+extern crate pest;
+#[macro_use]
+extern crate pest_derive;
 use crate::ruleindex::RuleIndex;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -31,7 +34,8 @@ use log::{info, warn,trace}; // Use log crate when building application
 use std::{println as info, println as warn, println as trace};
 use crate::backwardchaining::BackwardChainer;
 use crate::encoding::Encoder;
-use crate::parser::Parser;
+use crate::parser::{Parser,Syntax};
+
 use crate::queryengine::{QueryEngine, SimpleQueryEngine};
 use crate::reasoner::Reasoner;
 use crate::triples::{Rule, TermImpl, Triple, VarOrTerm}; // Workaround to use prinltn! for logs.
@@ -100,9 +104,23 @@ impl TripleStore {
 
 
 
-
-
-    fn decode_triples(triples: &Vec<Triple>, encoder: &Encoder) -> String {
+    pub fn decode_rule(rule: &Rule, encoder:&Encoder) -> String{
+        let mut res = String::new();
+        let decoded_head = Self::decode_triples(&[rule.head.clone()],encoder);
+        let decoded_body : String = rule.body.iter().map(|t|Self::decode_triples(&[t.clone()],encoder)).collect();
+        write!(&mut res, "{{{}}}=>{{{}}}.\n", decoded_body, decoded_head).unwrap();
+        res
+    }
+    pub fn decode_rules(rules: &[Rule], encoder:&Encoder) -> String{
+        let mut res = String::new();
+        for rule in rules {
+            let decoded_head = Self::decode_triples(&[rule.head.clone()],encoder);
+            let decoded_body : String = rule.body.iter().map(|t|Self::decode_triples(&[t.clone()],encoder)).collect();
+            write!(&mut res, "{{{}}}=>{{{}}}.\n", decoded_body, decoded_head).unwrap();
+        }
+        res
+    }
+    pub fn decode_triples(triples: &[Triple], encoder: &Encoder) -> String {
         let mut res = String::new();
         for triple in triples {
             let decoded_s = encoder.decode(&triple.s.to_encoded()).unwrap();
@@ -117,6 +135,24 @@ impl TripleStore {
         let content = &self.triple_index.triples;
         let encoder = &self.encoder;
         TripleStore::decode_triples(content,encoder)
+    }
+
+    pub fn load_triples(&mut self, data: &str, syntax: Syntax) -> Result<(),&'static str>{
+        match Parser::parse_triples(data,&mut self.encoder,syntax) {
+            Ok(triples) =>{triples.into_iter().for_each(|t| self.triple_index.add(t));
+                Ok(())
+            },
+            Err(err)=> Err(err)
+        }
+    }
+    pub fn load_rules(&mut self, data: &str) -> Result<(),&'static str>{
+        match Parser::parse_rules(data,&mut self.encoder) {
+            Ok(rules) =>{
+                rules.into_iter().for_each(|t| self.rules_index.add(t));
+                Ok(())
+            },
+            Err(err)=> Err(err)
+        }
     }
 
 }

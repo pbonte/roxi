@@ -564,6 +564,10 @@ dependencies = [
  "deepmesa",
  "env_logger",
  "log",
+ "pest",
+ "pest_derive",
+ "rio_api",
+ "rio_turtle",
  "spargebra",
 ]
 

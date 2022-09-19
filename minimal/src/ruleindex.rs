@@ -4,7 +4,7 @@ use crate::{Rule, Triple};
 
 
 pub struct RuleIndex   {
-    pub(crate) rules: Vec<Rc<Rule>>,
+    pub rules: Vec<Rc<Rule>>,
     spo:Vec<Rc<Rule>>,
     s:HashMap<usize,  Vec<Rc<Rule>>>,
     p:HashMap<usize, Vec<Rc<Rule>>>,

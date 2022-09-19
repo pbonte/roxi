@@ -40,6 +40,24 @@ impl VarOrTerm{
             Self::Term(term) => term.iri,
         }
     }
+    fn rem_first_and_last(value: &str) -> &str {
+        let mut chars = value.chars();
+        chars.next();
+        chars.next_back();
+        chars.as_str()
+    }
+    pub fn convert(var_or_term: String, encoder: &mut Encoder) -> VarOrTerm{
+        if var_or_term.starts_with('?'){
+            let var_name = &var_or_term[1..];
+            VarOrTerm::new_var(var_name.to_string(), encoder)
+        }else{
+            let mut iri_prefix = var_or_term;
+            if !iri_prefix.starts_with('<'){
+                iri_prefix = format!("<{}>",iri_prefix).to_string();
+            }
+            VarOrTerm::new_term(iri_prefix, encoder)
+        }
+    }
 }
 
 #[derive(Debug,  Clone, Eq, PartialEq, Hash)]
@@ -55,6 +73,14 @@ pub struct Triple{
     pub s: VarOrTerm,
     pub p: VarOrTerm,
     pub o: VarOrTerm
+}
+
+impl Triple{
+    pub fn from(subject: String, property: String, object: String, encoder:&mut Encoder) -> Triple {
+        Triple{s: VarOrTerm::convert(subject, encoder),
+            p: VarOrTerm::convert(property, encoder),
+            o: VarOrTerm::convert(object,encoder)}
+    }
 }
 
 #[derive(Debug,  Clone, Eq, PartialEq, Hash)]
