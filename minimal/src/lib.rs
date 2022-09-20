@@ -212,26 +212,7 @@ mod tests {
 
     }
 
-    #[test]
-    fn test_eval_backward_rule(){
-        let data="<http://example2.com/a> a test:SubClass.\n\
-                <http://example2.com/a> test:hasRef <http://example2.com/b>.\n\
-                <http://example2.com/b> test:hasRef <http://example2.com/c>.\n\
-                <http://example2.com/c> a test:SubClass.\n\
-            {?s a test:SubClass.}=>{?s a test:SubClass2.}\n
-            {?s a test:SubClass2.?s test:hasRef ?b.?b test:hasRef ?c.?c a test:SubClass2.}=>{?s a test:SuperType.}";
-        let mut store = TripleStore::from(data);
-        let encoder = &mut store.encoder;
-        let backward_head = Triple{s:VarOrTerm::new_var("?newVar".to_string(), encoder),p:VarOrTerm::new_term("a".to_string(), encoder),o:VarOrTerm::new_term("test:SuperType".to_string(), encoder)};
-        let var_encoded= encoder.add("?newVar".to_string());
-        let result_encoded = encoder.add("<http://example2.com/a>".to_string());
 
-        let  bindings = BackwardChainer::eval_backward(&store.triple_index, &store.rules_index, &backward_head);
-        let result_bindings = HashMap::from([
-            (var_encoded, Vec::from([result_encoded]))
-        ]);
-        assert_eq!(result_bindings.get(&12), bindings.get(&12));
-    }
     #[test]
     fn test_incomplete_rule_match(){
         let data=":a in :b.\n\

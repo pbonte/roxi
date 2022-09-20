@@ -75,7 +75,10 @@ impl Binding  {
     pub fn rename(&self, var_subs: Vec<(usize, usize)>) -> Binding {
         let mut renamed = Binding::new();
         for (orig_name, new_name) in var_subs{
-            renamed.bindings.insert(new_name,self.bindings.get(&orig_name).unwrap().clone());
+            if let Some(bound_value) = self.bindings.get(&orig_name){
+                renamed.bindings.insert(new_name,bound_value.clone());
+            }
+
         }
         renamed
     }
