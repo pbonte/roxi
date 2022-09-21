@@ -222,11 +222,11 @@ mod tests {
         let mut store = CSprite::from(data);
 
         let encoder = &mut store.encoder;
-        let backward_head = Triple { s: VarOrTerm::new_var("?newVar".to_string(), encoder), p: VarOrTerm::new_term("a".to_string(), encoder), o: VarOrTerm::new_term("test:SuperType".to_string(), encoder) };
+        let backward_head = Triple { s: VarOrTerm::new_var("?newVar".to_string(), encoder), p: VarOrTerm::new_term("a".to_string(), encoder), o: VarOrTerm::new_term("test:SuperType".to_string(), encoder), g:None };
 
 
         //assert_eq!(4,store.len());
-        let validation_triple = Triple { s: VarOrTerm::new_term("<http://example2.com/a>".to_string(), encoder), p: VarOrTerm::new_term("a".to_string(), encoder), o: VarOrTerm::new_term("test:SuperType".to_string(), encoder) };
+        let validation_triple = Triple { s: VarOrTerm::new_term("<http://example2.com/a>".to_string(), encoder), p: VarOrTerm::new_term("a".to_string(), encoder), o: VarOrTerm::new_term("test:SuperType".to_string(), encoder), g: None };
 
         store.compute_sprite(&backward_head);
         store.materialize();
@@ -247,7 +247,7 @@ mod tests {
         }
         let mut store = CSprite::from(data.as_str());
 
-        let backward_head = Triple{s:VarOrTerm::new_var("?newVar".to_string(), &mut store.encoder),p:VarOrTerm::new_term("a".to_string(), &mut store.encoder),o:VarOrTerm::new_term(format!("test:SubClass{}", size), &mut store.encoder)};
+        let backward_head = Triple{s:VarOrTerm::new_var("?newVar".to_string(), &mut store.encoder),p:VarOrTerm::new_term("a".to_string(), &mut store.encoder),o:VarOrTerm::new_term(format!("test:SubClass{}", size), &mut store.encoder), g: None};
 
         let load_time = timer_load.elapsed();
         println!("Load Time: {:.2?}", load_time);

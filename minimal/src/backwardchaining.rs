@@ -100,7 +100,7 @@ mod tests {
             {?s a test:SubClass2.?s test:hasRef ?b.?b test:hasRef ?c.?c a test:SubClass2.}=>{?s a test:SuperType.}";
         let mut store = TripleStore::from(data);
         let encoder = &mut store.encoder;
-        let backward_head = Triple{s:VarOrTerm::new_var("?newVar".to_string(), encoder),p:VarOrTerm::new_term("a".to_string(), encoder),o:VarOrTerm::new_term("test:SuperType".to_string(), encoder)};
+        let backward_head = Triple{s:VarOrTerm::new_var("?newVar".to_string(), encoder),p:VarOrTerm::new_term("a".to_string(), encoder),o:VarOrTerm::new_term("test:SuperType".to_string(), encoder), g: None};
         let var_encoded= encoder.add("?newVar".to_string());
         let result_encoded = encoder.add("<http://example2.com/a>".to_string());
 

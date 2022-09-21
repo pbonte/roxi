@@ -82,6 +82,7 @@ pub struct Triple {
     pub s: VarOrTerm,
     pub p: VarOrTerm,
     pub o: VarOrTerm,
+    pub g: Option<VarOrTerm>
 }
 
 impl Triple {
@@ -95,7 +96,19 @@ impl Triple {
             s: VarOrTerm::convert(subject, encoder),
             p: VarOrTerm::convert(property, encoder),
             o: VarOrTerm::convert(object, encoder),
+            g: None
         }
+    }
+    pub fn from_with_graph_name(
+        subject: String,
+        property: String,
+        object: String,
+        graph_name:String,
+        encoder: &mut Encoder,
+    ) -> Triple {
+        let mut triple = Self::from(subject, property, object, encoder);
+        triple.g = Some(VarOrTerm::convert(graph_name, encoder));
+        triple
     }
 }
 

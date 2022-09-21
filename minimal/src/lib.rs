@@ -186,19 +186,19 @@ mod tests {
         let mut encoder = Encoder::new();
         let max_depth = 5;
         for i in 0..max_depth{
-            let rule = Rule{head: Triple{s:VarOrTerm::new_var("s".to_string(), &mut encoder),p:VarOrTerm::new_term("http://test".to_string(), &mut encoder),o:VarOrTerm::new_term(format!("U{}", i+1), &mut encoder)},
-                body: Vec::from([Triple{s:VarOrTerm::new_var("s".to_string(), &mut encoder),p:VarOrTerm::new_term("http://test".to_string(), &mut encoder),o:VarOrTerm::new_term(format!("U{}", i), &mut encoder)}])};
+            let rule = Rule{head: Triple{s:VarOrTerm::new_var("s".to_string(), &mut encoder),p:VarOrTerm::new_term("http://test".to_string(), &mut encoder),o:VarOrTerm::new_term(format!("U{}", i+1), &mut encoder), g: None},
+                body: Vec::from([Triple{s:VarOrTerm::new_var("s".to_string(), &mut encoder),p:VarOrTerm::new_term("http://test".to_string(), &mut encoder),o:VarOrTerm::new_term(format!("U{}", i), &mut encoder), g: None}])};
             rules.push(rule);
         }
 
-        let content =  Vec::from([Triple{s:VarOrTerm::new_term("sTerm".to_string(), &mut encoder),p:VarOrTerm::new_term("http://test".to_string(), &mut encoder),o:VarOrTerm::new_term("U0".to_string(), &mut encoder)}]);
+        let content =  Vec::from([Triple{s:VarOrTerm::new_term("sTerm".to_string(), &mut encoder),p:VarOrTerm::new_term("http://test".to_string(), &mut encoder),o:VarOrTerm::new_term("U0".to_string(), &mut encoder), g: None}]);
         let mut rules_index = RuleIndex::new();
         for rule in rules.iter(){
             rules_index.add_ref(rule);
         }
         let mut triple_index = TripleIndex::new();
         content.into_iter().for_each(|t| triple_index.add(t));
-        let query = Triple{s:VarOrTerm::new_var("s".to_string(), &mut encoder),p:VarOrTerm::new_term("http://test".to_string(), &mut encoder),o:VarOrTerm::new_term(format!("U{}", max_depth), &mut encoder)};
+        let query = Triple{s:VarOrTerm::new_var("s".to_string(), &mut encoder),p:VarOrTerm::new_term("http://test".to_string(), &mut encoder),o:VarOrTerm::new_term(format!("U{}", max_depth), &mut encoder), g: None};
 
         let mut store = TripleStore{rules:Vec::new(), rules_index , triple_index, encoder,reasoner: Reasoner{ } };
 

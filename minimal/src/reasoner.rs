@@ -72,7 +72,7 @@ impl Reasoner{
                 VarOrTerm::Var(o_var)=> o = binding.get(&o_var.name).unwrap().get(result_counter).unwrap(),
                 VarOrTerm::Term(o_term)=> o = &o_term.iri
             }
-            new_heads.push(Triple{s:VarOrTerm::Term(TermImpl{iri:s.clone()}),p:VarOrTerm::Term(TermImpl{iri:p.clone()}),o:VarOrTerm::Term(TermImpl{iri:o.clone()})})
+            new_heads.push(Triple{s:VarOrTerm::Term(TermImpl{iri:s.clone()}),p:VarOrTerm::Term(TermImpl{iri:p.clone()}),o:VarOrTerm::Term(TermImpl{iri:o.clone()}), g: None})
         }
 
         new_heads
@@ -104,7 +104,7 @@ impl Reasoner{
                 VarOrTerm::Var(o_var)=> o = Self::subsitute_binding(&o_var.name,binding,&result_counter),
                 VarOrTerm::Term(o_term)=> o = VarOrTerm::new_encoded_term(o_term.iri.clone())
             }
-            new_heads.push(Triple{s,p,o})
+            new_heads.push(Triple{s,p,o,g:None})
         }
 
         new_heads
@@ -230,7 +230,7 @@ impl CSpriteReasoner{
                 } else {
                     o = VarOrTerm::new_encoded_term(triple.o.as_term().iri);
                 }
-                triples.push(Triple { s, p, o });
+                triples.push(Triple { s, p, o, g: None });
             }
             counter+=1;
             all_triples.push(triples);
@@ -247,7 +247,7 @@ fn test_reconstruct_from_bindings(){
     result_bindings.add(&0, 10);
     result_bindings.add(&2, 11);
     result_bindings.add(&3, 12);
-    let val_triple = vec![vec![Triple{s:VarOrTerm::new_encoded_term(10),p:VarOrTerm::new_encoded_term(1),o:VarOrTerm::new_encoded_term(11)}]];
+    let val_triple = vec![vec![Triple{s:VarOrTerm::new_encoded_term(10),p:VarOrTerm::new_encoded_term(1),o:VarOrTerm::new_encoded_term(11),g: None}]];
     for rule in rules{
         let triples = CSpriteReasoner::reconstruct_triples_from_bindings(&mut result_bindings, &rule);
         assert_eq!(val_triple, triples);
@@ -257,7 +257,7 @@ fn test_reconstruct_from_bindings(){
 }
 pub fn query(query_triple:&Triple, match_triple:&Triple) -> Option<Binding>{
     let mut bindings = Binding::new();
-    let Triple{s,p,o} = match_triple;
+    let Triple{s,p,o, g} = match_triple;
         match &query_triple.s{
             VarOrTerm::Var(s_var)=> bindings.add(&s_var.name,s.as_term().iri),
             VarOrTerm::Term(s_term)=>if let (TermImpl{iri}, TermImpl{iri:iri2})= (s_term,s.as_term()) {

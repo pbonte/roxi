@@ -148,7 +148,7 @@ mod test{
         println!("{:?}", inferred);
         assert_eq!(9, dred.triple_index.len());
 
-        let remove_triple = Triple{s:VarOrTerm::new_term(":john".to_string(), &mut dred.encoder),p:VarOrTerm::new_term(":teaches".to_string(), &mut dred.encoder),o:VarOrTerm::new_term(":math".to_string(), &mut dred.encoder)};
+        let remove_triple = Triple{s:VarOrTerm::new_term(":john".to_string(), &mut dred.encoder),p:VarOrTerm::new_term(":teaches".to_string(), &mut dred.encoder),o:VarOrTerm::new_term(":math".to_string(), &mut dred.encoder), g: None};
 
         dred.remove_ref(Rc::new(remove_triple));
         assert_eq!(8, dred.triple_index.len());

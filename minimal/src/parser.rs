@@ -24,7 +24,8 @@ impl Parser {
             let s = VarOrTerm::new_term(t.subject.to_string(), encoder);
             let p = VarOrTerm::new_term(t.predicate.to_string(), encoder);
             let o = VarOrTerm::new_term(t.object.to_string(), encoder);
-            triples.push(Triple { s, p, o });
+            let g = t.graph_name.map(|g|VarOrTerm::new_term(g.to_string(),encoder));
+            triples.push(Triple { s, p, o, g });
             Ok(()) as Result<(), TurtleError>
         };
 
@@ -46,7 +47,7 @@ impl Parser {
             let s = VarOrTerm::new_term(t.subject.to_string(),encoder);
             let p = VarOrTerm::new_term(t.predicate.to_string(),encoder);
             let o = VarOrTerm::new_term(t.object.to_string(), encoder);
-            triples.push(Triple { s, p, o });
+            triples.push(Triple { s, p, o, g: None });
             Ok(()) as Result<(), TurtleError>
         };
         let result = match syntax {
@@ -75,7 +76,7 @@ impl Parser {
         let s = convert_item(s);
         let p = convert_item(p);
         let o = convert_item(&o);
-        Triple { s, p, o }
+        Triple { s, p, o, g: None }
     }
     fn rem_first_and_last(value: &str) -> &str {
         let mut chars = value.chars();
