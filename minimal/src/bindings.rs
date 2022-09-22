@@ -82,5 +82,16 @@ impl Binding  {
         }
         renamed
     }
+    pub fn remove_vars(&mut self, var_names: &[usize]) {
+        for var_name in var_names{
+            self.bindings.remove(var_name);
+        }
+    }
+    pub fn retain_vars(&mut self, var_names: &[usize]) {
+        self.bindings.retain(|k,_|var_names.contains(k));
+    }
+    pub fn vars (&self) -> Vec<&usize>{
+       self.bindings.keys().collect()
+    }
 
 }

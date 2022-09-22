@@ -86,7 +86,7 @@ impl Reasoner{
         }
 
     }
-    fn substitute_triple_with_bindings(head: &Triple, binding: &Binding) ->Vec<Triple>{
+    pub fn substitute_triple_with_bindings(head: &Triple, binding: &Binding) ->Vec<Triple>{
         let mut new_heads = Vec::new();
         let mut s: VarOrTerm;
         let mut p: VarOrTerm;

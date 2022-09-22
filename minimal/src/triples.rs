@@ -34,13 +34,13 @@ impl VarOrTerm {
             panic!("Not a Var")
         }
     }
-    pub(crate) fn is_var(&self) -> bool {
+    pub fn is_var(&self) -> bool {
         match self {
             Self::Var(_) => true,
             Self::Term(_) => false,
         }
     }
-    pub(crate) fn is_term(&self) -> bool {
+    pub fn is_term(&self) -> bool {
         !self.is_var()
     }
     pub fn to_encoded(&self) -> usize {
