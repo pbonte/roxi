@@ -1,6 +1,9 @@
 use std::collections::HashMap;
+use std::iter;
+use std::iter::empty;
 use std::rc::Rc;
 use crate::{Binding, Encoder, Parser, TermImpl, Triple, TripleStore, VarOrTerm};
+use either::*;
 
 pub struct TripleIndex{
     pub triples: Vec<Triple>,
@@ -246,6 +249,197 @@ impl TripleIndex {
         }
     }
 
+
+
+    pub fn query_help<'a>( &'a self, query_triple: &'a Triple,triple_counter : Option<usize>)->Box<dyn Iterator<Item=Vec<EncodedBinding>> + 'a>{
+
+        //?s p o
+        if query_triple.s.is_var() & query_triple.p.is_term() & query_triple.o.is_term() {
+            if let Some(indexes) = self.pos.get(&query_triple.p.to_encoded()){
+                if let Some(indexes2) = indexes.get(&query_triple.o.to_encoded()){
+                    Self::extract_binding_values_single_var(&query_triple.s, &query_triple.g, indexes2)
+                }else{
+                    Box::new(empty())
+                }
+            }else{
+                Box::new(empty())
+            }
+        }
+        //s ?p o
+        else if query_triple.s.is_term() & query_triple.p.is_var() & query_triple.o.is_term() {
+
+            if let Some(indexes) = self.osp.get(&query_triple.o.to_encoded()){
+                if let Some(indexes2) = indexes.get(&query_triple.s.to_encoded()){
+                    Self::extract_binding_values_single_var(&query_triple.p, &query_triple.g, indexes2)
+                    }else{
+                    Box::new(empty())
+                }
+            }else{
+                Box::new(empty())
+            }
+        }
+        // //s p ?o
+        else if query_triple.s.is_term() & query_triple.p.is_term() & query_triple.o.is_var() {
+            if let Some(indexes) = self.spo.get(&query_triple.s.to_encoded()){
+                if let Some(indexes2) = indexes.get(&query_triple.p.to_encoded()){
+                    Self::extract_binding_values_single_var(&query_triple.o, &query_triple.g, indexes2)
+                }else{
+                    Box::new(empty())
+                }
+            }else{
+                Box::new(empty())
+            }
+        }
+        // //?s ?p o
+        else if query_triple.s.is_var() & query_triple.p.is_var() & query_triple.o.is_term() {
+            if let Some(indexes) = self.osp.get(&query_triple.o.to_encoded()) {
+                Box::new(indexes.iter().map(|(s_key, p_values)| p_values.iter().zip(iter::repeat(s_key).take(p_values.len()))).flatten()
+                    .map(|((encoded_match, counter, graph_name), s_key)|
+                        {
+                            let mut bindings = Vec::with_capacity(3);
+                            bindings.push(EncodedBinding { var: query_triple.s.to_encoded().clone(), val: s_key.clone() });
+                            bindings.push(EncodedBinding { var: query_triple.p.to_encoded().clone(), val: encoded_match.clone() });
+
+                            match &query_triple.g {
+                                Some(VarOrTerm::Var(var_name)) if graph_name.is_some() => {
+                                    bindings.push(EncodedBinding { var: var_name.name.clone(), val: graph_name.clone().unwrap().iri });
+                                }
+                                Some(VarOrTerm::Term(term)) if !graph_name.clone().map_or(false, |t| t.eq(term)) => {
+                                    return None
+                                }
+                                _ => {}
+                            }
+                            Some(bindings)
+                        }
+                    ).flatten())
+            }else{
+                Box::new(empty())
+            }
+        }
+        //s ?p ?o
+        else if query_triple.s.is_term() & query_triple.p.is_var() & query_triple.o.is_var() {
+            if let Some(indexes) = self.spo.get(&query_triple.s.to_encoded()){
+                Box::new( indexes.iter().map(|(key, values)| values.iter().zip(iter::repeat(key).take(values.len()))).flatten()
+                    .map(|((encoded_match, counter, graph_name), key)|
+                        {
+                            let mut bindings = Vec::with_capacity(3);
+                            bindings.push(EncodedBinding { var: query_triple.p.to_encoded().clone(), val: key.clone() });
+                            bindings.push(EncodedBinding { var: query_triple.o.to_encoded().clone(), val: encoded_match.clone() });
+
+                            match &query_triple.g {
+                                Some(VarOrTerm::Var(var_name)) if graph_name.is_some() => {
+                                    bindings.push(EncodedBinding { var: var_name.name.clone(), val: graph_name.clone().unwrap().iri });
+                                }
+                                Some(VarOrTerm::Term(term)) if !graph_name.clone().map_or(false, |t| t.eq(term)) => {
+                                    return None
+                                }
+                                _ => {}
+                            }
+                            Some(bindings)
+                        }
+                    ).flatten())
+
+            }else{Box::new(empty())}
+        }
+        //?s p ?o
+        else if query_triple.s.is_var() & query_triple.p.is_term() & query_triple.o.is_var() {
+            if let Some(indexes) = self.pos.get(&query_triple.p.to_encoded()){
+                Box::new( indexes.iter().map(|(key, values)| values.iter().zip(iter::repeat(key).take(values.len()))).flatten()
+                    .map(|((encoded_match, counter, graph_name), key)|
+                        {
+                            let mut bindings = Vec::with_capacity(3);
+                            bindings.push(EncodedBinding { var: query_triple.s.to_encoded().clone(), val: encoded_match.clone() });
+                            bindings.push(EncodedBinding { var: query_triple.o.to_encoded().clone(), val: key.clone() });
+
+                            match &query_triple.g {
+                                Some(VarOrTerm::Var(var_name)) if graph_name.is_some() => {
+                                    bindings.push(EncodedBinding { var: var_name.name.clone(), val: graph_name.clone().unwrap().iri });
+                                }
+                                Some(VarOrTerm::Term(term)) if !graph_name.clone().map_or(false, |t| t.eq(term)) => {
+                                    return None
+                                }
+                                _ => {}
+                            }
+                            Some(bindings)
+                        }
+                    ).flatten())
+
+            }else{Box::new(empty())}
+        }
+        // //?s ?p ?o
+        else if query_triple.s.is_var() & query_triple.p.is_var() & query_triple.o.is_var() {
+
+            Box::new(self.spo.iter().map(|(s_key,p_vals)|p_vals.iter().zip(iter::repeat(s_key).take(p_vals.len()))).flatten()
+                .map(|((p_key, o_values),s_key)|o_values.iter().zip(iter::repeat(p_key).take(o_values.len())).zip(iter::repeat(s_key).take(o_values.len()))).flatten()
+                .map(|(((encoded_match,counter, graph_name),p_key),s_key)|
+                    {
+                        let mut bindings = Vec::with_capacity(3);
+                        bindings.push(EncodedBinding { var: query_triple.s.to_encoded().clone(), val: s_key.clone() });
+                        bindings.push(EncodedBinding { var: query_triple.p.to_encoded().clone(), val: p_key.clone() });
+                        bindings.push(EncodedBinding { var: query_triple.o.to_encoded().clone(), val: encoded_match.clone() });
+
+                        match &query_triple.g {
+                            Some(VarOrTerm::Var(var_name)) if graph_name.is_some() => {
+                                bindings.push(EncodedBinding { var: var_name.name.clone(), val: graph_name.clone().unwrap().iri });
+                            }
+                            Some(VarOrTerm::Term(term)) if !graph_name.clone().map_or(false, |t| t.eq(term)) => {
+                                return None
+                            }
+                            _ => {}
+                        }
+                        Some(bindings)
+                    }
+                ).flatten())
+        }
+        // //s p o
+        else if query_triple.s.is_term() & query_triple.p.is_term() & query_triple.o.is_term() {
+            if let Some(indexes) = self.osp.get(&query_triple.o.to_encoded()){
+
+
+                if let Some(indexes2) = indexes.get(&query_triple.s.to_encoded()){
+                   Box::new( indexes2.iter().map(|(encoded_match,counter, graph_name)|{
+                        if *encoded_match == query_triple.p.to_encoded() {
+                            // return when triple has been found in knowlege base
+                            Some(Vec::with_capacity(0))
+                        }else{
+                            None
+                        }
+
+                    }).flatten())
+
+                }else{
+                    Box::new(empty())
+                }
+            }else{
+                Box::new(empty())
+            }
+        }else{
+            Box::new(empty())
+        }
+        //
+        // if matched_binding.len() > 0{
+        //     Some(matched_binding)
+        // }else{
+        //     None
+        // }
+    }
+
+    fn extract_binding_values_single_var<'a> (variable: &'a VarOrTerm, graph_var: &'a Option<VarOrTerm>, indexes2: &'a Vec<(usize, usize, Option<TermImpl>)>) -> Box<dyn Iterator<Item=Vec<EncodedBinding>>+ 'a> {
+        Box::new(indexes2.iter().map(move |(encoded_match, counter, graph_name)| {
+            let mut bindings = Vec::with_capacity(2);
+            bindings.push(EncodedBinding { var: variable.to_encoded().clone(), val: encoded_match.clone() });
+            match graph_var {
+                Some(VarOrTerm::Var(var_name)) if graph_name.is_some() => {
+                    bindings.push(EncodedBinding { var: var_name.name.clone(), val: graph_name.clone().unwrap().iri });
+                }
+                Some(VarOrTerm::Term(term)) if !graph_name.clone().map_or(false, |t| t.eq(term)) => {
+                    return None
+                }
+                _ => {}
+            }
+            Some(bindings)
+        }).flatten())
+    }
     fn check_quad_match_and_add(query_triple: &&Triple, matched_binding: &mut Binding, graph_name: &Option<TermImpl>) -> bool{
         match &query_triple.g {
             Some(VarOrTerm::Var(var_name)) if graph_name.is_some() => {
@@ -268,6 +462,18 @@ impl TripleIndex {
         self.counter = 0;
     }
 
+}
+#[derive(Debug,Clone)]
+pub struct EncodedBinding{pub var: usize, pub val: usize}
+pub struct QuadIterator <'a>{
+    query: Triple,
+    index: &'a TripleIndex
+}
+impl <'a> Iterator for QuadIterator<'a> {
+    type Item = Binding;
+    fn next(&mut self) -> Option<Self::Item>{
+        None
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -345,5 +551,23 @@ mod tests {
         assert_eq!(2, bindings.len());
         assert_eq!(&encoder.add("<http://example.com/>".to_string()),
                    bindings.get(&encoder.add("g".to_string())).unwrap().get(0).unwrap());
+    }
+
+
+    #[test]
+    fn test_iterator(){
+        let nquads = "<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> <http://example.com/> .
+<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Student> <http://example.com/somethingelse> .";
+        let mut encoder = Encoder::new();
+        let triples = Parser::parse_triples(nquads, &mut encoder, Syntax::NQuads).unwrap();
+        let mut index = TripleIndex::new();
+        triples.into_iter().for_each(|t| index.add(t));
+        let query_triple = Triple::from("?s".to_string(),"http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),"?o".to_string(),&mut encoder);
+        let it = index.query_help(&query_triple,None);
+        for item in it{
+            println!("item {:?}", item);
+        }
+        println!("encoder {:?}", encoder);
+
     }
 }
