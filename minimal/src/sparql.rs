@@ -78,6 +78,7 @@ fn extract_expression(expression: &Expression,encoder: &mut Encoder) -> PlanExpr
 fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex) -> Box<dyn Iterator<Item=Vec<EncodedBinding>> + 'a> {
     match plan_node{
         PlanNode::QuadPattern {pattern: triple}=>{
+
             triple_index.query_help(&triple,None)
         },
         PlanNode::Project {child,mapping}=>{
@@ -222,6 +223,48 @@ impl From<usize> for EncodedTerm {
         Self::IntegerLiteral(value)
     }
 }
+pub struct QueryResults {
+    plan: PlanNode,
+    iterator: Box<dyn Iterator<Item=Vec<EncodedBinding>>>
+}
+impl Iterator for QueryResults{
+    type Item = Vec<EncodedBinding>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iterator.next()
+    }
+}
+fn eval_query<'a>(query: &'a Query, index: &'a TripleIndex, encoder: &'a mut Encoder) -> PlanNode {
+    match query {
+        spargebra::Query::Select {
+            pattern, base_iri, ..
+        } => {
+            println!("Select query");
+            let plan = extract_query_plan(&pattern,encoder);
+
+            plan
+        }
+        spargebra::Query::Ask {
+            pattern, base_iri, ..
+        } => {
+            println!("Ask query");
+            PlanNode::Done
+        }
+        spargebra::Query::Construct {
+            template,
+            pattern,
+            base_iri,
+            ..
+        } => {
+            println!("Construct query");
+            PlanNode::Done }
+        spargebra::Query::Describe {
+            pattern, base_iri, ..
+        } => {
+            println!("Describe query");
+            PlanNode::Done        }
+    }
+}
 #[test]
 fn test_sparql_parser(){
     //load triples
@@ -237,46 +280,10 @@ fn test_sparql_parser(){
     let query = Query::parse(query_str, None).unwrap();
     println!("{}",query.to_sse());
     //let mut bgp = Vec::new();
-    match query {
-        spargebra::Query::Select {
-            pattern, base_iri, ..
-        } => {
-            println!("Select query");
-            let plan = extract_query_plan(&pattern,&mut encoder);
-            println!("Query plan: {:?}", plan);
-            let iterator = evaluate_plan(&plan,&index);
-            for item in iterator{
-                println!("item {:?}", item);
-            }
-
-            // match pattern {
-            //     GraphPattern::Bgp {patterns}=> println!("BGP: {:?}", patterns),
-            //     GraphPattern::Project {inner,variables}=>
-            //         match *inner{
-            //             GraphPattern::Bgp {patterns}=> {bgp.append(&mut extract_triples(&patterns, &mut encoder)); ()},
-            //             _ => (),
-            //         }
-            //     _ => println!("Something else"),
-            // }
-        }
-        spargebra::Query::Ask {
-            pattern, base_iri, ..
-        } => {
-            println!("Ask query");
-        }
-        spargebra::Query::Construct {
-            template,
-            pattern,
-            base_iri,
-            ..
-        } => {
-            println!("Construct query");
-        }
-        spargebra::Query::Describe {
-            pattern, base_iri, ..
-        } => {
-            println!("Describe query");
-        }
+    let plan = eval_query(&query,&index,&mut encoder);
+    let iterator = evaluate_plan(&plan,&index);
+    for item in iterator{
+        println!("item: {:?}", item);
     }
     println!("encoder {:?}", encoder);
     // println!("BGP: {:?}",bgp);
