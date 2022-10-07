@@ -23,7 +23,7 @@ fn extract_triples(triple_patterns: &Vec<TriplePattern>, encoder: &mut Encoder)-
     triples
 }
 #[derive(Debug)]
-enum PlanExpression{
+pub enum PlanExpression{
     Constant(TermImpl),
     Variable(usize),
     Greater(Box<Self>, Box<Self>),
@@ -33,7 +33,7 @@ enum PlanExpression{
     Done
 }
 #[derive(Debug)]
-enum PlanNode{
+pub enum PlanNode{
     Join{left: Box<Self>, right: Box<Self>},
     QuadPattern{pattern: Triple},
     Project {
@@ -86,8 +86,19 @@ fn extract_expression(expression: &Expression,encoder: &mut Encoder) -> PlanExpr
 
     }
 }
-
-fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex, encoder: &'a Encoder) -> Box<dyn Iterator<Item=Vec<EncodedBinding>> + 'a> {
+#[derive(Debug)]
+pub struct Binding{
+    var: String,
+    val: String
+}
+fn decode(input: &EncodedBinding, encoder: &Encoder) -> Binding{
+    Binding{var: encoder.decode(&input.var).unwrap_or(&"".to_string()).clone(),
+        val: encoder.decode(&input.val).unwrap_or(&"".to_string()).clone()}
+}
+pub fn evaluate_plan_and_debug<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex, encoder: &'a Encoder) -> Box<dyn Iterator<Item=Vec<Binding>> + 'a> {
+    Box::new(evaluate_plan(plan_node,triple_index,encoder).map(|v|v.into_iter().map(|b|decode(&b,encoder)).collect::<Vec<Binding>>()))
+}
+pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex, encoder: &'a Encoder) -> Box<dyn Iterator<Item=Vec<EncodedBinding>> + 'a> {
     match plan_node{
         PlanNode::QuadPattern {pattern: triple}=>{
 
@@ -272,7 +283,7 @@ impl Iterator for QueryResults{
         self.iterator.next()
     }
 }
-fn eval_query<'a>(query: &'a Query, index: &'a TripleIndex, encoder: &'a mut Encoder) -> PlanNode {
+pub fn eval_query<'a>(query: &'a Query, index: &'a TripleIndex, encoder: &'a mut Encoder) -> PlanNode {
     match query {
         spargebra::Query::Select {
             pattern, base_iri, ..

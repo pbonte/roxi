@@ -58,10 +58,15 @@ pub struct Window {
     open: usize,
     close: usize,
 }
-
+#[derive(Eq, PartialEq, Clone, Debug, Hash)]
+pub struct WindowTriple{
+    pub s: String,
+    pub p: String,
+    pub o: String
+}
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub struct ContentGraph {
-    elements: HashSet<Triple>,
+    elements: HashSet<WindowTriple>,
     last_timestamp_changed: usize,
 }
 
@@ -72,7 +77,7 @@ impl ContentGraph {
     fn len(&self) -> usize {
         self.elements.len()
     }
-    fn add(&mut self, triple: Triple, ts: usize) {
+    fn add(&mut self, triple: WindowTriple, ts: usize) {
         self.elements.insert(triple);
         self.last_timestamp_changed = ts;
     }
@@ -80,10 +85,10 @@ impl ContentGraph {
         self.last_timestamp_changed
     }
 
-    pub fn iter(&self) -> Iter<'_, Triple> {
+    pub fn iter(&self) -> Iter<'_, WindowTriple> {
         self.elements.iter()
     }
-    pub fn into_iter(&mut self) -> IntoIter<Triple> {
+    pub fn into_iter(&mut self) -> IntoIter<WindowTriple> {
         let map = mem::take(&mut self.elements);
         map.into_iter()
     }
@@ -105,7 +110,7 @@ impl CSPARQLWindow {
     pub fn new(width:usize, slide: usize, report: Report, tick: Tick)-> CSPARQLWindow{
         CSPARQLWindow{slide, width, t_0: 0, app_time:0, report,consumer: None, active_windows: HashMap::new(),tick}
     }
-    pub fn add_to_window(&mut self, triple: Triple, ts: usize) {
+    pub fn add_to_window(&mut self, triple: WindowTriple, ts: usize) {
         let event_time = ts;
         self.scope(&event_time);
 
@@ -172,6 +177,7 @@ impl CSPARQLWindow {
     }
     pub fn stop(&mut self){
         self.consumer.take();
+
     }
 }
 struct ConsumerInner{
@@ -209,6 +215,7 @@ impl Consumer{
 mod tests {
     use std::fmt::format;
     use std::sync::{Arc, Mutex};
+    use std::thread::Thread;
     use crate::Encoder;
     use super::*;
 
@@ -223,12 +230,13 @@ mod tests {
         let mut encoder = Encoder::new();
 
         for i in 0..10 {
-            let triple = Triple::from(format!("s{}", i), "p".to_string(), "o".to_string(), &mut encoder);
+            let triple = WindowTriple{s: format!("s{}", i), p: "p".to_string(), o: "o".to_string()};
             window.add_to_window(triple, i);
         }
 
         window.stop();
-        assert_eq!(4, consumer.len());
+        thread::sleep(Duration::from_secs(1));
+        assert_eq!(5, consumer.len());
 
     }
 

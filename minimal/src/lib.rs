@@ -50,7 +50,7 @@ pub struct TripleStore{
     pub encoder: Encoder,
     pub reasoner: Reasoner
 }
-
+unsafe impl Send for TripleStore {}
 
 
 impl TripleStore {
