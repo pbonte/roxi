@@ -27,6 +27,9 @@ enum PlanExpression{
     Constant(TermImpl),
     Variable(usize),
     Greater(Box<Self>, Box<Self>),
+    GreaterOrEqual(Box<Self>, Box<Self>),
+    Less(Box<Self>, Box<Self>),
+    LessOrEqual(Box<Self>, Box<Self>),
     Done
 }
 #[derive(Debug)]
@@ -68,6 +71,15 @@ fn extract_expression(expression: &Expression,encoder: &mut Encoder) -> PlanExpr
         Expression::Greater(a,b)=>{
             PlanExpression::Greater(Box::new(extract_expression(a, encoder)),Box::new(extract_expression(b, encoder)))
         },
+        Expression::GreaterOrEqual(a,b)=>{
+            PlanExpression::GreaterOrEqual(Box::new(extract_expression(a, encoder)),Box::new(extract_expression(b, encoder)))
+        },
+        Expression::Less(a,b)=>{
+            PlanExpression::Less(Box::new(extract_expression(a, encoder)),Box::new(extract_expression(b, encoder)))
+        },
+        Expression::LessOrEqual(a,b)=>{
+            PlanExpression::LessOrEqual(Box::new(extract_expression(a, encoder)),Box::new(extract_expression(b, encoder)))
+        },
         Expression::Variable(var)=>PlanExpression::Variable(encoder.add(var.as_str().to_string())),
         Expression::Literal(value)=>PlanExpression::Constant(TermImpl{iri:value.value().parse::<usize>().unwrap()}),
         _=> PlanExpression::Done
@@ -75,14 +87,14 @@ fn extract_expression(expression: &Expression,encoder: &mut Encoder) -> PlanExpr
     }
 }
 
-fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex) -> Box<dyn Iterator<Item=Vec<EncodedBinding>> + 'a> {
+fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex, encoder: &'a Encoder) -> Box<dyn Iterator<Item=Vec<EncodedBinding>> + 'a> {
     match plan_node{
         PlanNode::QuadPattern {pattern: triple}=>{
 
             triple_index.query_help(&triple,None)
         },
         PlanNode::Project {child,mapping}=>{
-            let child_it = evaluate_plan(child, triple_index);
+            let child_it = evaluate_plan(child, triple_index,encoder);
 
             Box::new(child_it.map(|binding|{
                 let projection : Vec<EncodedBinding>= binding.into_iter().filter(|b|mapping.contains(&b.var)).collect();
@@ -90,8 +102,8 @@ fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex) -> 
             }))
         },
         PlanNode::Join {left, right}=> {
-            let left = evaluate_plan(left,triple_index);
-            let right = evaluate_plan(right,triple_index);
+            let left = evaluate_plan(left,triple_index, encoder);
+            let right = evaluate_plan(right,triple_index, encoder);
             let mut left = left.peekable();
             let mut right = right.peekable();
             let left_peek = left.peek();
@@ -132,8 +144,8 @@ fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex) -> 
             }
             Box::new(empty())},
         PlanNode::Filter {child, expression}=>{
-            let child = evaluate_plan(child,triple_index);
-            let expression = eval_expression(expression);
+            let child = evaluate_plan(child,triple_index, encoder);
+            let expression = eval_expression(expression, encoder);
             Box::new(child.filter(move|bindings|{
                 if let Some(EncodedTerm::BooleanLiteral(true)) = expression(bindings){
                     true
@@ -145,44 +157,37 @@ fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex) -> 
         PlanNode::Done => Box::new(empty())
     }
 }
-fn eval_expression<'a>(expression: &'a PlanExpression) ->  Box<dyn Fn(&Vec<EncodedBinding>) -> Option<EncodedTerm> + 'a>{
+fn eval_expression<'a>(expression: &'a PlanExpression, encoder: &'a Encoder) ->  Box<dyn Fn(&Vec<EncodedBinding>) -> Option<EncodedTerm> + 'a>{
     match expression{
         PlanExpression::Greater(a,b)=>{
-            let a = eval_expression(a);
-            let b = eval_expression(b);
-            // Box::new(move |bindings| match a(bindings).and_then(|v| to_bool(&v)) {
-            //     Some(true) => b(bindings),
-            //     Some(false) => Some(false.into()),
-            //     None => {
-            //         if Some(false) == b(bindings).and_then(|v| to_bool(&v)) {
-            //             Some(false.into())
-            //         } else {
-            //             None
-            //         }
-            //     }
-            // })
-                Box::new(move |bindings| {
-                    let b_res = b(bindings);
-
-                    let r = match a(bindings) {
-                        Some(EncodedTerm::IntegerLiteral(int_val_a)) => match b_res{
-                            Some(EncodedTerm::IntegerLiteral(int_val_b)) => int_val_a.partial_cmp(&int_val_b).into(),
-                            _ => None
-                        },
-                        Some(EncodedTerm::StringLiteral(str_val_a)) => match b(bindings){
-                            Some(EncodedTerm::StringLiteral(str_val_b))=> str_val_a.partial_cmp(&str_val_b),
-                            _ => None
-                        },
-                        _ => None
-                    };
-
-                    Some((r.unwrap() == Ordering::Greater).into())
-                        })
+            partial_compare_helper(encoder, a, b, Ordering::Greater, None)
+        },
+        PlanExpression::Less(a,b)=>{
+            partial_compare_helper(encoder, a, b, Ordering::Less, None)
+        },
+        PlanExpression::GreaterOrEqual(a,b)=>{
+            partial_compare_helper(encoder, a, b, Ordering::Greater, Some(Ordering::Equal))
+        },
+        PlanExpression::LessOrEqual(a,b)=>{
+            partial_compare_helper(encoder, a, b, Ordering::Less, Some(Ordering::Equal))
         },
         PlanExpression::Variable(v)=> Box::new(move |bindings|{
             let var_value : Vec<&EncodedBinding> = bindings.iter().filter(|b|b.var==*v).collect();
-            var_value.get(0).iter().map(|v|v.val.into()).next()
-            //Some(var_value.get(0).unwrap().val.into())
+            var_value.get(0).iter().map(|v|{
+                if let  Some(decoded) = encoder.decode(&v.val){
+                    let split: Vec<&str> = decoded.split("^^").collect();
+                    if let Some(iri) = split.get(1){
+                        let value = split.get(0).unwrap();
+                        let value = &value[1..value.len()-1];
+                        match iri{
+                            &"<http://www.w3.org/2001/XMLSchema#integer>"=>return value.parse::<usize>().unwrap().into(),
+                            _ =>  return v.val.into()
+                        }
+                    }
+
+                };
+                v.val.into()
+            }).next()
         }),
         PlanExpression::Constant(t) => {
             let t = t.clone();
@@ -192,6 +197,39 @@ fn eval_expression<'a>(expression: &'a PlanExpression) ->  Box<dyn Fn(&Vec<Encod
     }
 
 }
+
+fn partial_compare_helper<'a>(encoder: &'a Encoder, a: &'a Box<PlanExpression>, b: &'a Box<PlanExpression>, ordering: Ordering, second_order: Option<Ordering>) -> Box<dyn Fn(&Vec<EncodedBinding>) -> Option<EncodedTerm> +'a> {
+    let a = eval_expression(a, encoder);
+    let b = eval_expression(b, encoder);
+
+    Box::new(move |bindings| {
+        let b_res = b(bindings);
+
+        let r: Option<Ordering> = match a(bindings) {
+            Some(EncodedTerm::IntegerLiteral(int_val_a)) => match b_res {
+                Some(EncodedTerm::IntegerLiteral(int_val_b)) => int_val_a.partial_cmp(&int_val_b).into(),
+                _ => None
+            },
+            Some(EncodedTerm::StringLiteral(str_val_a)) => match b(bindings) {
+                Some(EncodedTerm::StringLiteral(str_val_b)) => str_val_a.partial_cmp(&str_val_b),
+                _ => None
+            },
+            _ => None
+        };
+        let r = r.unwrap();
+        if let Some(second_ordering) = second_order{
+            if r == ordering  || r == second_ordering{
+                Some(true.into())
+            }else{
+                Some(false.into())
+            }
+
+        }else{
+            Some((r == ordering).into())
+        }
+    })
+}
+
 fn to_bool(term: &EncodedTerm) -> Option<bool> {
     match term {
         EncodedTerm::BooleanLiteral(value) => Some(*value),
@@ -265,26 +303,47 @@ fn eval_query<'a>(query: &'a Query, index: &'a TripleIndex, encoder: &'a mut Enc
             PlanNode::Done        }
     }
 }
-#[test]
-fn test_sparql_parser(){
-    //load triples
-    let nquads = "<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> <http://example.com/> .
-<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Student> <http://example.com/somethingelse> .
-<http://example.com/foo> <http://test/hasVal> \"1\"^^<http://www.w3.org/2001/XMLSchema#integer> <http://example.com/somethingelse> .";
-    let mut encoder = Encoder::new();
-    let triples = Parser::parse_triples(nquads, &mut encoder, Syntax::NQuads).unwrap();
-    let mut index = TripleIndex::new();
-    triples.into_iter().for_each(|t| index.add(t));
+#[cfg(test)]
+mod tests{
+    use super::*;
+    fn prepare_test() -> (TripleIndex, Encoder) {
+        //load triples
+        let nquads = "<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> <http://example.com/> .
+    <http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Student> <http://example.com/somethingelse> .
+    <http://example.com/foo> <http://test/hasVal> \"1\"^^<http://www.w3.org/2001/XMLSchema#integer> <http://example.com/somethingelse> .
+    <http://example.com/foo2> <http://test/hasVal> \"10\"^^<http://www.w3.org/2001/XMLSchema#integer> <http://example.com/somethingelse> .";
 
-    let query_str = "Select * WHERE {  ?s <http://test/hasVal> ?o2  . Filter(?o2 > 1). }";
-    let query = Query::parse(query_str, None).unwrap();
-    println!("{}",query.to_sse());
-    //let mut bgp = Vec::new();
-    let plan = eval_query(&query,&index,&mut encoder);
-    let iterator = evaluate_plan(&plan,&index);
-    for item in iterator{
-        println!("item: {:?}", item);
+        let mut encoder = Encoder::new();
+        let triples = Parser::parse_triples(nquads, &mut encoder, Syntax::NQuads).unwrap();
+        let mut index = TripleIndex::new();
+        triples.into_iter().for_each(|t| index.add(t));
+        (index, encoder)
     }
-    println!("encoder {:?}", encoder);
-    // println!("BGP: {:?}",bgp);
+    #[test]
+    fn test_filter_greater_than() {
+        let (index, mut encoder) = prepare_test();
+        let query_str = "Select * WHERE {  ?s <http://test/hasVal> ?o2  . Filter(?o2 > 1). }";
+        let query = Query::parse(query_str, None).unwrap();
+        let plan = eval_query(&query, &index, &mut encoder);
+        let iterator = evaluate_plan(&plan, &index, &encoder);
+        assert_eq!(1, iterator.collect::<Vec<Vec<EncodedBinding>>>().len());
+    }
+    #[test]
+    fn test_filter_greater_than_or_equal() {
+        let (index, mut encoder) = prepare_test();
+        let query_str = "Select * WHERE {  ?s <http://test/hasVal> ?o2  . Filter(?o2 >= 1). }";
+        let query = Query::parse(query_str, None).unwrap();
+        let plan = eval_query(&query, &index, &mut encoder);
+        let iterator = evaluate_plan(&plan, &index, &encoder);
+        assert_eq!(2, iterator.collect::<Vec<Vec<EncodedBinding>>>().len());
+    }
+    #[test]
+    fn test_filter_less_than() {
+        let (index, mut encoder) = prepare_test();
+        let query_str = "Select * WHERE {  ?s <http://test/hasVal> ?o2  . Filter(?o2 <= 1). }";
+        let query = Query::parse(query_str, None).unwrap();
+        let plan = eval_query(&query, &index, &mut encoder);
+        let iterator = evaluate_plan(&plan, &index, &encoder);
+        assert_eq!(1, iterator.collect::<Vec<Vec<EncodedBinding>>>().len());
+    }
 }

@@ -17,6 +17,7 @@ pub mod pipeline;
 pub mod sparql;
 pub mod dred;
 pub mod utils;
+pub mod rsp;
 extern crate pest;
 #[macro_use]
 extern crate pest_derive;

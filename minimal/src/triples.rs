@@ -4,6 +4,8 @@ use crate::Encoder;
 pub enum VarOrTerm {
     Var(Variable),
     Term(TermImpl),
+    // Literal(Literal),
+    // BlankNode(BlankNode)
 }
 impl VarOrTerm {
     pub fn new_term(iri: String, encoder: &mut Encoder) -> VarOrTerm {
@@ -77,6 +79,14 @@ pub struct Variable {
 pub struct TermImpl {
     pub(crate) iri: usize,
 }
+// #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+// pub struct Literal{
+//     pub value: String
+// }
+// #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+// pub struct BlankNode{
+//     pub id: String
+// }
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Triple {
     pub s: VarOrTerm,

@@ -126,7 +126,6 @@ pub fn parse(parse_string: &str, encoder: &mut Encoder) -> Result<Vec<ReasonerRu
 
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     #[test]
     fn parse_tp() {
