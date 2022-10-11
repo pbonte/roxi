@@ -81,7 +81,7 @@ impl ContentGraph {
         self.elements.insert(triple);
         self.last_timestamp_changed = ts;
     }
-    fn get_last_timestamp_changed(&self) -> usize {
+    pub fn get_last_timestamp_changed(&self) -> usize {
         self.last_timestamp_changed
     }
 

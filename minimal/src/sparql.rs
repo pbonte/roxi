@@ -86,10 +86,10 @@ fn extract_expression(expression: &Expression,encoder: &mut Encoder) -> PlanExpr
 
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub struct Binding{
-    var: String,
-    val: String
+    pub var: String,
+    pub val: String
 }
 fn decode(input: &EncodedBinding, encoder: &Encoder) -> Binding{
     Binding{var: encoder.decode(&input.var).unwrap_or(&"".to_string()).clone(),
