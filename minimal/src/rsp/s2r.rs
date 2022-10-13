@@ -10,6 +10,8 @@ use log::{info, warn, trace, debug}; // Use log crate when building application
 #[cfg(test)]
 use std::{println as info, println as warn, println as trace, println as debug};
 use std::collections::hash_set::{IntoIter, Iter};
+use std::fmt::Debug;
+use std::hash::Hash;
 use std::sync::{Arc, Mutex};
 
 pub enum ReportStrategy {
@@ -18,26 +20,32 @@ pub enum ReportStrategy {
     OnWindowClose,
     Periodic(usize),
 }
-
+impl Default for ReportStrategy{
+    fn default() -> Self { ReportStrategy::OnWindowClose }
+}
 pub enum Tick {
     TimeDriven,
     TupleDriven,
     BatchDriven,
 }
-
-pub struct Report {
-    strategies: Vec<ReportStrategy>,
-    last_change: ContentGraph,
+impl Default for Tick{
+    fn default() -> Self { Tick::TimeDriven }
 }
 
-impl Report {
-    pub fn new() -> Report {
-        Report { strategies: Vec::new(), last_change: ContentGraph::new() }
+pub struct Report<I> where I: Eq + PartialEq + Clone + Debug + Hash + Send{
+    strategies: Vec<ReportStrategy>,
+    last_change: ContentContainer<I>,
+}
+
+impl <I> Report <I>
+    where I: Eq + PartialEq + Clone + Debug + Hash + Send{
+    pub fn new() -> Report<I> {
+        Report { strategies: Vec::new(), last_change: ContentContainer::new() }
     }
     pub fn add(&mut self, strategy: ReportStrategy) {
         self.strategies.push(strategy);
     }
-    pub fn report(&mut self, window: &Window, content: &ContentGraph, ts: usize) -> bool {
+    pub fn report(&mut self, window: &Window, content: &ContentContainer<I>, ts: usize) -> bool {
         self.strategies.iter().all(|strategy| {
             match strategy {
                 ReportStrategy::NonEmptyContent => content.len() > 0,
@@ -58,26 +66,22 @@ pub struct Window {
     open: usize,
     close: usize,
 }
-#[derive(Eq, PartialEq, Clone, Debug, Hash)]
-pub struct WindowTriple{
-    pub s: String,
-    pub p: String,
-    pub o: String
-}
+
 #[derive(Eq, PartialEq, Clone, Debug)]
-pub struct ContentGraph {
-    elements: HashSet<WindowTriple>,
+pub struct ContentContainer<I> where I: Eq + PartialEq + Clone + Debug + Hash + Send{
+    elements: HashSet<I>,
     last_timestamp_changed: usize,
 }
 
-impl ContentGraph {
-    fn new() -> ContentGraph {
-        ContentGraph { elements: HashSet::new(), last_timestamp_changed: 0 }
+impl <I> ContentContainer<I>
+    where I: Eq + PartialEq + Clone + Debug + Hash + Send{
+    fn new() -> ContentContainer<I> {
+        ContentContainer { elements: HashSet::new(), last_timestamp_changed: 0 }
     }
     fn len(&self) -> usize {
         self.elements.len()
     }
-    fn add(&mut self, triple: WindowTriple, ts: usize) {
+    fn add(&mut self, triple: I, ts: usize) {
         self.elements.insert(triple);
         self.last_timestamp_changed = ts;
     }
@@ -85,46 +89,46 @@ impl ContentGraph {
         self.last_timestamp_changed
     }
 
-    pub fn iter(&self) -> Iter<'_, WindowTriple> {
+    pub fn iter(&self) -> Iter<'_, I> {
         self.elements.iter()
     }
-    pub fn into_iter(&mut self) -> IntoIter<WindowTriple> {
+    pub fn into_iter(mut self) -> IntoIter<I> {
         let map = mem::take(&mut self.elements);
         map.into_iter()
     }
 }
 
 
-pub struct CSPARQLWindow {
+pub struct CSPARQLWindow<I> where I: Eq + PartialEq + Clone + Debug + Hash + Send{
     width: usize,
     slide: usize,
     t_0: usize,
-    active_windows: HashMap<Window, ContentGraph>,
-    report: Report,
+    active_windows: HashMap<Window, ContentContainer<I>>,
+    report: Report<I>,
     tick: Tick,
     app_time: usize,
-    consumer: Option<Sender<ContentGraph>>
+    consumer: Option<Sender<ContentContainer<I>>>
 }
 
-impl CSPARQLWindow {
-    pub fn new(width:usize, slide: usize, report: Report, tick: Tick)-> CSPARQLWindow{
+impl <I> CSPARQLWindow <I> where I: Eq + PartialEq + Clone + Debug + Hash + Send{
+    pub fn new(width:usize, slide: usize, report: Report<I>, tick: Tick)-> CSPARQLWindow<I>{
         CSPARQLWindow{slide, width, t_0: 0, app_time:0, report,consumer: None, active_windows: HashMap::new(),tick}
     }
-    pub fn add_to_window(&mut self, triple: WindowTriple, ts: usize) {
+    pub fn add_to_window(&mut self, event_item: I, ts: usize) {
         let event_time = ts;
         self.scope(&event_time);
 
         let test = self.active_windows.clone().into_iter().filter_map(|(window, mut content)| {
-            debug!("Processing Window [{:?}, {:?}) for element ({:?},{:?})", window.open, window.close,triple, ts);
+            debug!("Processing Window [{:?}, {:?}) for element ({:?},{:?})", window.open, window.close,event_item, ts);
             if window.open <= event_time && event_time <= window.close {
-                debug!("Adding element [{:?}] to Window [{:?},{:?})",triple, window.open, window.close);
-                content.add(triple.clone(), ts);
+                debug!("Adding element [{:?}] to Window [{:?},{:?})",event_item, window.open, window.close);
+                content.add(event_item.clone(), ts);
                 Some((window, content))
             } else {
                 debug!("Scheduling for Eviction [{:?},{:?})", window.open, window.close);
                 None
             }
-        }).collect::<HashMap<Window, ContentGraph>>();
+        }).collect::<HashMap<Window, ContentContainer<I>>>();
 
 
         let max = self.active_windows.iter()
@@ -164,14 +168,14 @@ impl CSPARQLWindow {
             debug!("Computing Window [{:?},{:?}) if absent", o_i, (o_i +self.width as f64));
             let window = Window { open: o_i as usize, close: (o_i + self.width as f64) as usize };
             if let None = self.active_windows.get(&window) {
-                self.active_windows.insert(window, ContentGraph::new());
+                self.active_windows.insert(window, ContentContainer::new());
             }
             o_i += self.slide as f64;
             if o_i > *event_time as f64 { break; }
         }
     }
-    pub fn register(&mut self)-> Receiver<ContentGraph> {
-        let (send, recv) = channel::<ContentGraph>();
+    pub fn register(&mut self)-> Receiver<ContentContainer<I>> {
+        let (send, recv) = channel::<ContentContainer<I>>();
         self.consumer.replace(send);
         recv
     }
@@ -180,17 +184,17 @@ impl CSPARQLWindow {
 
     }
 }
-struct ConsumerInner{
-    data: Mutex<Vec<ContentGraph>>
+struct ConsumerInner<I>  where I: Eq + PartialEq + Clone + Debug + Hash + Send{
+    data: Mutex<Vec<ContentContainer<I>>>
 }
-struct Consumer{
-    inner: Arc<ConsumerInner>
+struct Consumer<I> where I: Eq + PartialEq + Clone + Debug + Hash + Send{
+    inner: Arc<ConsumerInner<I>>
 }
-impl Consumer{
-    fn new() -> Consumer{
+impl <I> Consumer <I> where I: Eq + PartialEq + Clone + Debug + Hash + Send + 'static{
+    fn new() -> Consumer<I> {
         Consumer{inner: Arc::new(ConsumerInner{data: Mutex::new(Vec::new())})}
     }
-    fn start(&self,receiver: Receiver<ContentGraph>){
+    fn start(&self,receiver: Receiver<ContentContainer<I>>){
         let consumer_temp = self.inner.clone();
         thread::spawn(move||{
             loop{
@@ -210,6 +214,12 @@ impl Consumer{
     fn len(&self)->usize{
         self.inner.data.lock().unwrap().len()
     }
+}
+#[derive(Eq, PartialEq, Clone, Debug, Hash)]
+pub struct WindowTriple{
+    pub s: String,
+    pub p: String,
+    pub o: String
 }
 #[cfg(test)]
 mod tests {

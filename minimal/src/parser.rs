@@ -9,6 +9,12 @@ pub struct Parser;
 #[derive(PartialEq)]
 pub enum Syntax {NTriples, Turtle, TriG, NQuads}
 
+impl Default for Syntax{
+    fn default() -> Self {
+        Syntax::NTriples
+    }
+}
+
 impl Parser {
     pub fn parse_triples(data: &str, encoder: &mut Encoder, syntax: Syntax) -> Result<Vec<Triple>, &'static str>{
         if syntax == Syntax::Turtle || syntax == Syntax::NTriples {

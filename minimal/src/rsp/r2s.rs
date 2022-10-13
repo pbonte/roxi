@@ -1,39 +1,48 @@
 use std::collections::HashSet;
+use std::hash::Hash;
 use std::mem;
-use crate::sparql::Binding;
 
 pub enum StreamOperator{
     RSTREAM, ISTREAM, DSTREAM
 }
-pub struct Relation2StreamOperator {
+
+impl Default  for StreamOperator{
+    fn default() -> Self {
+        StreamOperator::RSTREAM
+    }
+}
+pub struct Relation2StreamOperator<O> {
     stream_operator: StreamOperator,
-    old_result: HashSet<Vec<Binding>>,
-    new_result: HashSet<Vec<Binding>>,
+    old_result: HashSet<O>,
+    new_result: HashSet<O>,
     ts: usize
 }
 
-impl Relation2StreamOperator {
-    pub fn new(stream_operator: StreamOperator, start_time: usize) -> Relation2StreamOperator {
-        Relation2StreamOperator {stream_operator, old_result: HashSet::new(), new_result: HashSet::new(),ts: start_time}
+impl <O> Relation2StreamOperator <O> where O: Clone + Hash + Eq {
+    pub fn new(stream_operator: StreamOperator, start_time: usize) -> Relation2StreamOperator<O> {
+        match stream_operator {
+            StreamOperator::RSTREAM => Relation2StreamOperator {stream_operator, old_result: HashSet::with_capacity(0), new_result: HashSet::with_capacity(0),ts: start_time},
+            _ => Relation2StreamOperator {stream_operator, old_result: HashSet::new(), new_result: HashSet::new(),ts: start_time}
+        }
+
     }
-    pub fn eval(&mut self, new_repsonse: Vec<Vec<Binding>>, ts: usize) -> Vec<Vec<Binding>>{
+    pub fn eval(&mut self, new_response: Vec<O>, ts: usize) -> Vec<O>{
         match self.stream_operator {
-            StreamOperator::RSTREAM => new_repsonse,
+            StreamOperator::RSTREAM => new_response,
             StreamOperator::ISTREAM => {
-                let to_compare = new_repsonse.clone();
-                self.prepare_compare(new_repsonse, ts);
+                let to_compare = new_response.clone();
+                self.prepare_compare(new_response, ts);
                 to_compare.into_iter().filter(|b| !self.old_result.contains(b)).collect()
             },
             StreamOperator::DSTREAM => {
-                self.prepare_compare(new_repsonse, ts);
+                self.prepare_compare(new_response, ts);
                 let to_compare = self.old_result.clone();
                 to_compare.into_iter().filter(|b| !self.new_result.contains(b)).collect()
-            },
-            _ => Vec::new()
+            }
         }
     }
 
-    fn prepare_compare(&mut self, new_repsonse: Vec<Vec<Binding>>, ts: usize) {
+    fn prepare_compare(&mut self, new_repsonse: Vec<O>, ts: usize) {
         if  self.ts < ts {
             mem::swap(&mut self.new_result, &mut self.old_result);
             self.new_result.clear();
@@ -59,7 +68,7 @@ mod tests{
             vec!(Binding{var:"?1".to_string(),val:"1.2".to_string()},
                                    Binding{var:"?2".to_string(),val:"2.2".to_string()})
         );
-        let mut s2r = Relation2StreamOperator::new(RSTREAM, 0);
+        let mut s2r: Relation2StreamOperator<Vec<Binding>> = Relation2StreamOperator::new(RSTREAM, 0);
         let expected_result = new_result.clone();
 
         assert_eq!(expected_result,s2r.eval(new_result,1));
@@ -82,7 +91,7 @@ mod tests{
             vec!(Binding{var:"?1".to_string(),val:"1.2".to_string()},
                  Binding{var:"?2".to_string(),val:"2.2".to_string()})
         );
-        let mut s2r = Relation2StreamOperator::new(DSTREAM, 0);
+        let mut s2r: Relation2StreamOperator<Vec<Binding>> = Relation2StreamOperator::new(DSTREAM, 0);
         s2r.eval(old_result,1);
 
         assert_eq!(expected_deletion,s2r.eval(new_result,2));
@@ -105,7 +114,7 @@ mod tests{
             vec!(Binding{var:"?1".to_string(),val:"1.3".to_string()},
                  Binding{var:"?2".to_string(),val:"2.3".to_string()})
         );
-        let mut s2r = Relation2StreamOperator::new(ISTREAM, 0);
+        let mut s2r: Relation2StreamOperator<Vec<Binding>> = Relation2StreamOperator::new(ISTREAM, 0);
         s2r.eval(old_result,1);
 
         assert_eq!(expected_deletion,s2r.eval(new_result,2));
