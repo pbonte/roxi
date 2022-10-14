@@ -16,7 +16,7 @@ use crate::Triple;
 /// the state of a single window, adding and remove based on the timestamps.
 /// # Examples
 /// ```
-/// use minimal::imars::ImarsWindow;
+/// use lib::imars::ImarsWindow;
 /// let mut window :ImarsWindow<i32> = ImarsWindow::new(2,2);
 /// window.add(100,0);
 /// window.add(101,1);
@@ -27,7 +27,7 @@ use crate::Triple;
 /// IMaRs allows to update values with newer timestamps (used for reasoning):
 ///
 /// ```
-/// use minimal::imars::ImarsWindow;
+/// use lib::imars::ImarsWindow;
 /// let mut window :ImarsWindow<i32> = ImarsWindow::new(4,2);
 /// window.add(100,0);
 /// window.add(101,1);
@@ -42,7 +42,7 @@ use crate::Triple;
 /// ```
 /// use std::cell::RefCell;
 /// use std::rc::Rc;
-/// use minimal::imars::{ImarsWindow, SimpleWindowConsumer};
+/// use lib::imars::{ImarsWindow, SimpleWindowConsumer};
 ///
 /// let mut window :ImarsWindow<i32> = ImarsWindow::new(2,2);
 /// let consumer = Rc::new(RefCell::new(SimpleWindowConsumer::new()));

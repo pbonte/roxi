@@ -4,13 +4,23 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-oxigraph = "0.3.2"
-datafrog = "2.0.1"
-rio_turtle = "0.7.1"
+deepmesa = "0.9.0"
+bencher = "0.1.5"
+log = { version = "0.4"}
+env_logger = "0.9.0"
+spargebra = "0.2.2"
 rio_api = "0.7.1"
-clap = { version = "3.1.8", features = ["derive"] }
+rio_turtle = "0.7.1"
 pest = "2.0"
 pest_derive = "2.0"
-log = { version = "0.4"}
+either = "1.8.0"
+
+
+[[bench]]
+name = "bench"
+harness = false
+
+[[bench]]
+name = "hierarchies"
+harness = false

@@ -1,6 +1,11 @@
 # RoXi
 
-Reactive Reasoning on top of [oxigraph](https://github.com/oxigraph/oxigraph)
+RoXi provides a uniform framework for Reactive Reasoning applications including:
+- Incremental maintenance
+- RDF Stream Processing
+- Temporal Reasoning (TODO)
+
+RoXi uses some of the internals of [oxigraph](https://github.com/oxigraph/oxigraph), including [sparqlalgebra](https://crates.io/crates/spargebra) and [OxRDF](https://crates.io/crates/oxrdf).
 
 
 RoXi can be included as a library, run in server mode through CLI or in the browser using web assembly.
@@ -13,17 +18,16 @@ How to build RoXi in server mode:
 cd server
 cargo build --release
 cd ..
-./target/release/server --abox <ABOX> --tbox <TBOX> --query <QUERY>
+./target/release/server --abox <ABOX> --tbox <TBOX> 
 ```
 The following parameters can be defined:
 1. `--abox` file location to abox statements. File in TTL format (.ttl) supported.
 2. `--tbox` file location to tbox statements. Files in TTL format (.ttl) and N3 Logic (.n3) supported.
-3. `--query` string representing SPARQL query
-4. `--trace` [optional] boolean for printing reasoning traces 
+3`--trace` [optional] boolean for printing reasoning traces 
 
 For example:
 ```
-./target/release/server --abox examples/abox.ttl --tbox examples/rules.n3 --query "Select * WHERE {?S ?P ?O}"
+./target/release/server --abox examples/abox.ttl --tbox examples/rules.n3 
 ```
 
 ## Roxi JS lib

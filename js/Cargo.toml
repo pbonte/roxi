@@ -13,6 +13,8 @@ default = ["console_error_panic_hook"]
 wasm-bindgen = "0.2.63"
 cfg-if = "0.1"
 roxi = { version = "0.1.0", path = "../lib" }
+getrandom = { version = "0.2.6", features = ["js"] }
+
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires

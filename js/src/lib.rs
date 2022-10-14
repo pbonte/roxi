@@ -5,7 +5,9 @@ mod utils;
 
 use cfg_if::cfg_if;
 use wasm_bindgen::prelude::*;
-use roxi::reasoningstore::ReasoningStore;
+use roxi::parser::Syntax;
+use roxi::TripleStore;
+
 
 cfg_if! {
     // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
@@ -19,29 +21,26 @@ cfg_if! {
 
 #[wasm_bindgen]
 pub struct RoxiReasoner{
-    reasoner: ReasoningStore
+    reasoner: TripleStore
 }
 #[wasm_bindgen]
 impl RoxiReasoner{
     pub fn new() -> RoxiReasoner{
-        RoxiReasoner{reasoner: ReasoningStore::new()}
+        RoxiReasoner{reasoner: TripleStore::new()}
     }
-    pub fn add_abox(&self, abox:String){
-        self.reasoner.load_abox(abox.as_ref());
+    pub fn add_abox(&mut self, abox:String){
+        self.reasoner.load_triples(abox.as_ref(), Syntax::NTriples);
     }
     pub fn add_rules(&mut self, rules:String){
-        self.reasoner.parse_and_add_rule(rules.as_str());
+        self.reasoner.load_rules(rules.as_str());
     }
     pub fn len_abox(&self)->usize{
-        self.reasoner.len_abox()
-    }
-    pub fn len_rules(&self)->usize{
-        self.reasoner.len_rules()
+        self.reasoner.len()
     }
     pub fn materialize(&mut self){
         self.reasoner.materialize();
     }
-    pub fn get_abox_dump(&self)->String{
-        self.reasoner.dump_as_string()
+    pub fn get_abox_dump(& self)->String{
+        self.reasoner.content_to_string()
     }
 }

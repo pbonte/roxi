@@ -1,27 +1,16 @@
 [package]
-name = "server"
+name = "roxi"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+oxigraph = "0.3.2"
+datafrog = "2.0.1"
+rio_turtle = "0.7.1"
+rio_api = "0.7.1"
 clap = { version = "3.1.8", features = ["derive"] }
 pest = "2.0"
 pest_derive = "2.0"
-roxi = { version = "0.1.0", path = "../lib" }
-
-env_logger = "0.9.0"
-profiling = "1.0"
-spargebra = "0.2.2"
-
-
-[features]
-profile-with-puffin = ["profiling/profile-with-puffin"]
-
-
-[profile.release]
-lto = true
-opt-level = 3
-
-
+log = { version = "0.4"}
