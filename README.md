@@ -47,8 +47,8 @@ This will generate a `pkg` folder. Now you can add RoXi as a dependency in your 
   }
 }
 ```
-Example usage:
-```
+Example usage when using the static reasoner:
+```javascript
 import {RoxiReasoner} from "roxi";
 // create the reasoner
 const reasoner = RoxiReasoner.new();
@@ -60,5 +60,30 @@ reasoner.add_rules("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <ht
 reasoner.materialize();
 // log a dump of the materialized abox
 console.log(reasoner.get_abox_dump());
+```
+Example usage when using the RSP engine:
+```javascript
+import {JSRSPEngine, RoxiReasoner} from "roxi";
+// callback function
+function callback(val) {
+    console.log(val);
+}
+let width = 10;
+let slide = 2;
+let rules = "@prefix test: <http://test/>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n {?x test:isIn ?y. ?y test:isIn ?z. }=>{?x test:isIn ?z.}";
+let abox = "";
+let query = "Select * WHERE{ ?x <http://test/isIn> ?y}";
+// create the engine
+let rspEngine = JSRSPEngine.new(width,slide,rules,abox,query,callback);
+// add some data
+let event = "<http://test/0> <http://test/isIn> <http://test/1>.";
+let currentTimeStamp = 0;
+rspEngine.add(event, currentTimeStamp);
+...
+let event = ... ;
+currentTimeStamp += 1;
+rspEngine.add(event, currentTimeStamp);
+
+
 ```
 

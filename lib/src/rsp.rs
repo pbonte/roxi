@@ -180,7 +180,7 @@ impl  <I, O> RSPEngine<I, O> where O: Clone + Hash + Eq + Send +'static, I: Eq +
         content.clone().into_iter().for_each(|t| {
             store.add(t);
         });
-        store.materialize();
+        let inferred = store.materialize();
         let r2r_result = store.execute_query(&query);
         let r2s_result = r2s_operator.lock().unwrap().eval(r2r_result, time_stamp);
         // TODO run R2S in other thread
@@ -189,6 +189,9 @@ impl  <I, O> RSPEngine<I, O> where O: Clone + Hash + Eq + Send +'static, I: Eq +
         }
         //remove data from stream
         content.iter().for_each(|t| {
+            store.remove(t);
+        });
+        inferred.iter().for_each(|t|{
             store.remove(t);
         });
     }
@@ -225,8 +228,11 @@ impl R2ROperator<WindowTriple,Vec<Binding>> for SimpleR2R {
         self.item.remove_ref(&encoded_triple);
     }
 
-    fn materialize(&mut self) {
-        self.item.materialize();
+    fn materialize(&mut self) -> Vec<WindowTriple>{
+        let inferred = self.item.materialize();
+        inferred.into_iter().map(|t|WindowTriple{s:self.item.encoder.decode(&t.s.to_encoded()).unwrap().to_string(),
+        p:self.item.encoder.decode(&t.p.to_encoded()).unwrap().to_string(),
+        o:self.item.encoder.decode(&t.o.to_encoded()).unwrap().to_string()}).collect()
     }
 
     fn execute_query(&self, query: &Query) -> Vec<Vec<Binding>> {
