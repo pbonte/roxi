@@ -91,6 +91,7 @@ pub struct Binding{
     pub var: String,
     pub val: String
 }
+
 fn decode(input: &EncodedBinding, encoder: &Encoder) -> Binding{
     Binding{var: encoder.decode(&input.var).unwrap_or(&"".to_string()).clone(),
         val: encoder.decode(&input.val).unwrap_or(&"".to_string()).clone()}

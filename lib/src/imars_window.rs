@@ -37,7 +37,7 @@ impl <T> WindowConsumer<T> for SimpleWindowConsumer<T> {
 /// the state of a single window, adding and remove based on the timestamps.
 /// # Examples
 /// ```
-/// use minimal::imars_window::ImarsWindow;
+/// use roxi::imars_window::ImarsWindow;
 /// let mut window :ImarsWindow<i32> = ImarsWindow::new(2,2);
 /// window.add(100,0);
 /// window.add(101,1);
@@ -48,7 +48,7 @@ impl <T> WindowConsumer<T> for SimpleWindowConsumer<T> {
 /// IMaRs allows to update values with newer timestamps (used for reasoning):
 ///
 /// ```
-/// use minimal::imars_window::ImarsWindow;
+/// use roxi::imars_window::ImarsWindow;
 /// let mut window :ImarsWindow<i32> = ImarsWindow::new(4,2);
 /// window.add(100,0);
 /// window.add(101,1);
@@ -63,7 +63,7 @@ impl <T> WindowConsumer<T> for SimpleWindowConsumer<T> {
 /// ```
 /// use std::cell::RefCell;
 /// use std::rc::Rc;
-/// use minimal::imars_window::{ImarsWindow, SimpleWindowConsumer};
+/// use roxi::imars_window::{ImarsWindow, SimpleWindowConsumer};
 ///
 /// let mut window :ImarsWindow<i32> = ImarsWindow::new(2,2);
 /// let consumer = Rc::new(RefCell::new(SimpleWindowConsumer::new()));

@@ -14,11 +14,14 @@ use crate::rsp::r2s::{Relation2StreamOperator, StreamOperator};
 use crate::rsp::r2r::{R2ROperator};
 use crate::sparql::{Binding, eval_query, evaluate_plan_and_debug};
 
-mod s2r;
-mod r2r;
-mod r2s;
+pub mod s2r;
+pub mod r2r;
+pub mod r2s;
 
-struct  RSPBuilder<'a, I, O> {
+pub enum OperationMode{
+    SingleThread, MultiThread
+}
+pub struct  RSPBuilder<'a, I, O> {
     width: usize,
     slide: usize,
     tick: Option<Tick>,
@@ -29,7 +32,8 @@ struct  RSPBuilder<'a, I, O> {
     query_str: Option<&'a str>,
     result_consumer: Option<ResultConsumer<O>>,
     r2s: Option<StreamOperator>,
-    r2r: Option<Box<dyn R2ROperator<I, O>>>
+    r2r: Option<Box<dyn R2ROperator<I, O>>>,
+    operation_mode : OperationMode
 
 }
 impl <'a, I, O> RSPBuilder<'a, I, O> where O: Clone + Hash + Eq + Send + Debug +'static, I: Eq + PartialEq + Clone + Debug + Hash + Send +'static{
@@ -46,6 +50,7 @@ impl <'a, I, O> RSPBuilder<'a, I, O> where O: Clone + Hash + Eq + Send + Debug +
             result_consumer: None,
             r2s: None,
             r2r: None,
+            operation_mode: OperationMode::MultiThread
         }
     }
     pub fn add_tick(mut self, tick: Tick)->RSPBuilder<'a, I, O>{
@@ -84,6 +89,10 @@ impl <'a, I, O> RSPBuilder<'a, I, O> where O: Clone + Hash + Eq + Send + Debug +
         self.syntax = Some(syntax);
         self
     }
+    pub fn set_operation_mode(mut self, operation_mode: OperationMode)->RSPBuilder<'a, I, O>{
+        self.operation_mode = operation_mode;
+        self
+    }
     pub fn build(self) -> RSPEngine<I,O>{
         RSPEngine::new(
             self.width,
@@ -96,25 +105,26 @@ impl <'a, I, O> RSPBuilder<'a, I, O> where O: Clone + Hash + Eq + Send + Debug +
         self.query_str.expect("Please provide R2R query"),
         self.result_consumer.unwrap_or(ResultConsumer{function: Arc::new( Box::new(|r|println!("Bindings: {:?}",r)))}),
             self.r2s.unwrap_or_default(),
-            self.r2r.expect("Please provide R2R operator!")
+            self.r2r.expect("Please provide R2R operator!"),
+            self.operation_mode
         )
 
     }
 }
-struct RSPEngine<I,O> where I: Eq + PartialEq + Clone + Debug + Hash + Send{
+pub struct RSPEngine<I,O> where I: Eq + PartialEq + Clone + Debug + Hash + Send{
     s2r: CSPARQLWindow<I>,
     r2r: Arc<Mutex<Box<dyn R2ROperator<I,O>>>>,
     r2s_consumer: ResultConsumer<O>,
     r2s_operator: Arc<Mutex<Relation2StreamOperator<O>>>
 }
-struct ResultConsumer<I>{
-    function: Arc<dyn Fn(I) ->() + Send + Sync>
+pub struct ResultConsumer<I>{
+    pub function: Arc<dyn Fn(I) ->() + Send + Sync>
 }
 
 
 impl  <I, O> RSPEngine<I, O> where O: Clone + Hash + Eq + Send +'static, I: Eq + PartialEq + Clone + Debug + Hash + Send +'static{
 
-    pub fn new(width: usize, slide: usize, tick: Tick, report_strategy: ReportStrategy, triples: &str, syntax: Syntax, rules: &str, query_str: &str, result_consumer: ResultConsumer<O>, r2s: StreamOperator, r2r: Box<dyn R2ROperator<I, O>>) -> RSPEngine<I, O>{
+    pub fn new(width: usize, slide: usize, tick: Tick, report_strategy: ReportStrategy, triples: &str, syntax: Syntax, rules: &str, query_str: &str, result_consumer: ResultConsumer<O>, r2s: StreamOperator, r2r: Box<dyn R2ROperator<I, O>>, operation_mode: OperationMode) -> RSPEngine<I, O>{
         let mut report = Report::new();
         report.add(report_strategy);
         let mut window = CSPARQLWindow::new(width, slide, report, tick);
@@ -124,8 +134,23 @@ impl  <I, O> RSPEngine<I, O> where O: Clone + Hash + Eq + Send +'static, I: Eq +
         store.load_rules(rules);
         let query = Query::parse(query_str, None).unwrap();
         let mut engine = RSPEngine{s2r: window, r2r:  Arc::new(Mutex::new(store)), r2s_consumer: result_consumer, r2s_operator: Arc::new(Mutex::new(Relation2StreamOperator::new(r2s,0)))};
-        let consumer = engine.s2r.register();
-        engine.register_r2r(consumer, query);
+        match operation_mode {
+            OperationMode::SingleThread => {
+                let consumer_temp = engine.r2r.clone();
+                let r2s_consumer = engine.r2s_consumer.function.clone();
+                let mut r2s_operator = engine.r2s_operator.clone();
+                let call_back: Box<dyn FnMut(ContentContainer<I>) -> ()> = Box::new(move |content| {
+                    Self::evaluate_r2r_and_call_r2s(&query, consumer_temp.clone(), r2s_consumer.clone(), r2s_operator.clone(), content);
+                });
+                engine.s2r.register_callback(call_back);
+            },
+            OperationMode::MultiThread => {
+                let consumer = engine.s2r.register();
+                engine.register_r2r(consumer, query);
+            }
+        }
+
+
         engine
     }
     fn register_r2r(&mut self,receiver: Receiver<ContentContainer<I>>, query: Query){
@@ -136,20 +161,7 @@ impl  <I, O> RSPEngine<I, O> where O: Clone + Hash + Eq + Send +'static, I: Eq +
             loop{
                 match receiver.recv(){
                     Ok(mut content)=> {
-                        debug!("R2R operator retrieved graph {:?}", content);
-                        let time_stamp = content.get_last_timestamp_changed();
-                        let mut store = consumer_temp.lock().unwrap();
-                        content.into_iter().for_each(|t|{
-                            store.add(t);
-
-                        });
-                       store.materialize();
-                        let r2r_result = store.execute_query(&query);
-                        let r2s_result = r2s_operator.lock().unwrap().eval(r2r_result, time_stamp);
-                        // TODO run R2S in other thread
-                        for result in r2s_result {
-                                (r2s_consumer)(result);
-                        }
+                        Self::evaluate_r2r_and_call_r2s(&query, consumer_temp.clone(), r2s_consumer.clone(), r2s_operator.clone(), content);
                     },
                     Err(_) => {
                         debug!("Shutting down!");
@@ -158,6 +170,26 @@ impl  <I, O> RSPEngine<I, O> where O: Clone + Hash + Eq + Send +'static, I: Eq +
                 }
             }
             debug!("Shutdown complete!");
+        });
+    }
+
+    fn evaluate_r2r_and_call_r2s(query: &Query, consumer_temp: Arc<Mutex<Box<dyn R2ROperator<I, O>>>>, r2s_consumer: Arc<dyn Fn(O) + Send + Sync>, mut r2s_operator: Arc<Mutex<Relation2StreamOperator<O>>>, mut content: ContentContainer<I>) {
+        debug!("R2R operator retrieved graph {:?}", content);
+        let time_stamp = content.get_last_timestamp_changed();
+        let mut store = consumer_temp.lock().unwrap();
+        content.clone().into_iter().for_each(|t| {
+            store.add(t);
+        });
+        store.materialize();
+        let r2r_result = store.execute_query(&query);
+        let r2s_result = r2s_operator.lock().unwrap().eval(r2r_result, time_stamp);
+        // TODO run R2S in other thread
+        for result in r2s_result {
+            (r2s_consumer)(result);
+        }
+        //remove data from stream
+        content.iter().for_each(|t| {
+            store.remove(t);
         });
     }
 
@@ -170,10 +202,10 @@ impl  <I, O> RSPEngine<I, O> where O: Clone + Hash + Eq + Send +'static, I: Eq +
     }
 }
 
-struct TestR2R{
-    item: TripleStore
+pub struct SimpleR2R {
+    pub item: TripleStore
 }
-impl R2ROperator<WindowTriple,Vec<Binding>> for TestR2R{
+impl R2ROperator<WindowTriple,Vec<Binding>> for SimpleR2R {
     fn load_triples(&mut self, data: &str, syntax: Syntax) -> Result<(), &'static str> {
         self.item.load_triples(data,syntax)
     }
@@ -185,6 +217,12 @@ impl R2ROperator<WindowTriple,Vec<Binding>> for TestR2R{
     fn add(&mut self, data: WindowTriple) {
         let encoded_triple = Triple::from(data.s,data.p,data.o,&mut self.item.encoder);
         self.item.add(encoded_triple);
+    }
+
+    fn remove(&mut self, data: &WindowTriple) {
+        let encoded_triple = Triple::from(data.s.clone(),data.p.clone(),data.o.clone(),&mut self.item.encoder);
+
+        self.item.remove_ref(&encoded_triple);
     }
 
     fn materialize(&mut self) {
@@ -201,10 +239,15 @@ impl R2ROperator<WindowTriple,Vec<Binding>> for TestR2R{
 
 #[cfg(test)]
 mod tests{
+    use std::fs::{File, OpenOptions};
+    use std::io;
+    use std::io::{Write, BufRead};
+
     use std::time::Duration;
     use super::*;
 
     #[test]
+    #[ignore]
     fn rsp_integration(){
         let ntriples_file = "<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
 <http://example.com/foo> <http://schema.org/name> \"Foo\" .
@@ -213,7 +256,7 @@ mod tests{
         let rules = "@prefix test: <http://www.w3.org/test/>.\n{?x <http://test.be/hasVal> ?y. ?y <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person>.}=>{?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> test:SuperType.}";
         let function = Box::new(|r|println!("Bindings: {:?}",r));
         let result_consumer = ResultConsumer{function: Arc::new(function)};
-        let r2r = Box::new(TestR2R{item: TripleStore::new()});
+        let r2r = Box::new(SimpleR2R {item: TripleStore::new()});
         let mut engine = RSPBuilder::new(10,2)
             .add_tick(Tick::TimeDriven)
             .add_report_strategy(ReportStrategy::OnWindowClose)
@@ -232,6 +275,83 @@ mod tests{
         }
         engine.stop();
         thread::sleep(Duration::from_secs(2));
+
+    }
+    #[test]
+    #[ignore]
+    fn test_load_from_file(){
+        let ntriples_file = "<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+<http://example.com/foo> <http://schema.org/name> \"Foo\" .
+<http://example.com/bar> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+<http://example.com/bar> <http://schema.org/name> \"Bar\" .";
+        let rules = "@prefix test: <http://www.w3.org/test/>.\n{?x <http://test.be/hasVal> ?y. ?y <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person>.}=>{?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> test:SuperType.}";
+
+        //write to file
+        let function = Box::new(|r|{
+            let mut output = OpenOptions::new()
+                .write(true)
+                .append(true)
+                .open("/tmp/rox_rsp.out")
+                .unwrap();
+            write!(output, "Bindings: {:?}\n",r).unwrap();
+                });
+        let result_consumer = ResultConsumer{function: Arc::new(function)};
+        let r2r = Box::new(SimpleR2R {item: TripleStore::new()});
+        let mut engine = RSPBuilder::new(10,2)
+            .add_tick(Tick::TimeDriven)
+            .add_report_strategy(ReportStrategy::OnWindowClose)
+            .add_triples(ntriples_file)
+            .add_syntax(Syntax::NTriples)
+            .add_rules(rules)
+            .add_query("Select * WHERE{ ?s <http://test/hasLocation> ?loc}")
+            .add_consumer(result_consumer)
+            .add_r2r(r2r)
+            .add_r2s(StreamOperator::RSTREAM)
+            .build();
+
+        //read from file:
+        let file = File::open("/Users/psbonte/Documents/Github/RoXi/examples/rsp/location_update_stream.nt").unwrap();
+
+        for (i,lines) in io::BufReader::new(file).lines().enumerate(){
+            let lines = lines.unwrap();
+            let mut line = lines.split(" ");
+            let triple = WindowTriple{s:line.next().unwrap().to_string(),
+                p:line.next().unwrap().to_string(),
+                o: line.next().unwrap().to_string(),};
+
+            engine.add(triple,i);
+        }
+        engine.stop();
+        thread::sleep(Duration::from_secs(2));
+    }
+    #[test]
+    #[ignore]
+    fn rsp_transitive_testp(){
+        let ntriples_file = "";
+        let rules = "@prefix test: <http://test/>.
+ @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+ {?x test:isIn ?y. ?y test:isIn ?z. }=>{?x test:isIn ?z.}";
+        let function = Box::new(|r|println!("Bindings: {:?}",r));
+        let result_consumer = ResultConsumer{function: Arc::new(function)};
+        let r2r = Box::new(SimpleR2R {item: TripleStore::new()});
+        let mut engine = RSPBuilder::new(10,2)
+            .add_tick(Tick::TimeDriven)
+            .add_report_strategy(ReportStrategy::OnWindowClose)
+            .add_triples(ntriples_file)
+            .add_syntax(Syntax::NTriples)
+            .add_rules(rules)
+            .add_query("Select * WHERE{ ?x <http://test/isIn> ?y}")
+            .add_consumer(result_consumer)
+            .add_r2r(r2r)
+            .add_r2s(StreamOperator::RSTREAM)
+            .set_operation_mode(OperationMode::SingleThread)
+            .build();
+        for i in 0..10 {
+            let triple = WindowTriple{s:format!("<http://test/{}>", i), p:"<http://test/isIn>".to_string(),o: format!("<http://test/{}>", i+1)};
+
+            engine.add(triple,i);
+        }
+        engine.stop();
 
     }
 }

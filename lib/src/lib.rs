@@ -76,9 +76,9 @@ impl TripleStore {
         trace!{"Adding triple: {:?}", self.decode_triple(triple.as_ref()) }
         self.triple_index.add_ref(triple);
     }
-    pub fn remove_ref(&mut self, triple: Rc<Triple>){
-        trace!{"Removing triple: {:?}", self.decode_triple(triple.as_ref()) }
-        self.triple_index.remove_ref(&triple);
+    pub fn remove_ref(&mut self, triple: &Triple){
+        trace!{"Removing triple: {:?}", self.decode_triple(triple) }
+        self.triple_index.remove_ref(triple);
     }
     pub(crate) fn add_rules(&mut self, rules: Vec<Rule>) {
         rules.into_iter().for_each(|rule|self.rules_index.add(rule));

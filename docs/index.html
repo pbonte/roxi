@@ -1,53 +1,134 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>RoXi Reasoner</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
-  </head>
-  <body>
-    <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
-    <script src="./bootstrap.js"></script>
+<head>
+  <meta charset="utf-8">
+  <title>RoXi Reasoner</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+</head>
+<body>
+<noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
+<script src="./bootstrap.js"></script>
 
-    <section class="hero is-small is-info">
-      <div class="hero-body">
-        <p class="title">
-          RoXi
-        </p>
-        <p class="subtitle">
-          Reasoning on Web scale
-        </p>
+<section class="hero is-small is-info">
+  <div class="hero-body">
+    <p class="title">
+      RoXi
+    </p>
+    <p class="subtitle">
+      Reasoning on Web scale
+    </p>
+  </div>
+</section>
+<div class="tabs">
+  <ul>
+    <li class="tab is-active" onclick="openTab(event,'reasoning')"><a>Reasoning</a></li>
+    <li class="tab" onclick="openTab(event,'rsp')"><a>RDF Stream Processing</a></li>
+  </ul>
+</div>
+<div class="container">
+  <div id="reasoning" class="content-tab" >
+    <div class="notification is-light">
+      <label class="label">ABox:</label>
+      <textarea class="textarea is-link" placeholder="Define Abox" id="aboxContent"></textarea>
+      <label class="label">Rules:</label>
+      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContent"></textarea>
+      <div class="control">
+        <button class="button is-info" id="startReasoning">Materialize</button>
       </div>
-    </section>
-    <div class="container">
-      <div class="notification is-light">
-        <label class="label">ABox:</label>
-        <textarea class="textarea is-link" placeholder="Define Abox" id="aboxContent"></textarea>
-        <label class="label">Rules:</label>
-        <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContent"></textarea>
-        <div class="control">
-          <button class="button is-info" id="startReasoning">Materialize</button>
-        </div>
-        <label class="label">Results:</label>
-        <textarea class="textarea is-link" placeholder="Results" id="results"></textarea>
-        <div>
+      <label class="label">Results:</label>
+      <textarea class="textarea is-link" placeholder="Results" id="results"></textarea>
+      <div>
         Execution Time: <spand id="timeResults"/>
-        </div>
       </div>
     </div>
-    <footer class="footer">
-      <div class="content has-text-centered">
-        <p>
-          <a  href="https://knows.idlab.ugent.be/"></a><strong>RoXi</strong></a> by <a href="https://knows.idlab.ugent.be/">KNowledge On Web Scale</a> Team. The source code is licensed
-          <a href="http://opensource.org/licenses/mit-license.php">MIT</a>.
-        </p>
+  </div>
+  <div id="rsp" class="content-tab" style="display: none;">
+    <div class="notification is-light">
+      <label class="label">RSP Rules:</label>
+      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContentRSP"></textarea>
+      <label class="label">Continuous SPARQL Query:</label>
+      <textarea class="textarea is-link" placeholder="Enter Query" id="continousQuery"></textarea>
+
+      <div class="field is-horizontal">
+        <div class="field-label is-normal">
+          <label class="label">Window Width: </label>
+        </div>
+        <div class="field-body">
+          <div class="field">
+            <p class="control">
+              <input class="input" type="test" id="windowWidth" value="10">
+            </p>
+          </div>
+        </div>
+        <div class="field-label is-normal">
+          <label class="label">Window Slide: </label>
+        </div>
+        <div class="field-body">
+          <div class="field">
+            <p class="control">
+              <input class="input" type="text" id="windowSlide" value="2">
+            </p>
+          </div>
+        </div>
       </div>
-    </footer>
-  </body>
+
+      <div class="field is-horizontal">
+        <div class="field-label is-normal">
+          <label class="label">Event: </label>
+        </div>
+        <div class="field-body">
+          <div class="field">
+            <p class="control">
+              <input class="input" type="test" id="eventID" value="<http://test/0> <http://test/isIn> <http://test/1>.">
+            </p>
+          </div>
+        </div>
+        <div class="field-label is-normal">
+          <label class="label">Timestamp: </label>
+        </div>
+        <div class="field-body">
+          <div class="field">
+            <p class="control">
+              <input class="input" type="text" id="timestamp" value="0">
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="control">
+        <button class="button is-info" id="startRSP">Send</button>
+      </div>
+      <label class="label">Results:</label>
+      <textarea class="textarea is-link" placeholder="Results" id="resultsRSP"></textarea>
+    </div>
+  </div>
+</div>
+<footer class="footer">
+  <div class="content has-text-centered">
+    <p>
+      <a  href="https://knows.idlab.ugent.be/"></a><strong>RoXi</strong></a> by <a href="https://knows.idlab.ugent.be/">KNowledge On Web Scale</a> Team. The source code is licensed
+      <a href="http://opensource.org/licenses/mit-license.php">MIT</a>.
+    </p>
+  </div>
+</footer>
+</body>
 <script>
   function clicked(){
     alert("clicked");
     materialized();
+  }
+  function openTab(evt, tabName) {
+    var i, x, tablinks;
+    x = document.getElementsByClassName("content-tab");
+    for (i = 0; i < x.length; i++) {
+      x[i].style.display = "none";
+    }
+    tablinks = document.getElementsByClassName("tab");
+    for (i = 0; i < x.length; i++) {
+      tablinks[i].className = tablinks[i].className.replace(" is-active", "");
+    }
+    document.getElementById(tabName).style.display = "block";
+    evt.currentTarget.className += " is-active";
   }
 </script>
 </html>

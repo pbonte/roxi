@@ -3,11 +3,17 @@ extern crate wasm_bindgen;
 
 mod utils;
 
+use std::sync::{Arc, Mutex};
+use std::thread;
 use cfg_if::cfg_if;
+use js_sys::Function;
 use wasm_bindgen::prelude::*;
 use roxi::parser::Syntax;
 use roxi::TripleStore;
-
+use roxi::rsp::{OperationMode, ResultConsumer, RSPBuilder, RSPEngine, SimpleR2R};
+use roxi::rsp::r2s::StreamOperator;
+use roxi::rsp::s2r::{ReportStrategy, Tick, WindowTriple};
+use roxi::sparql::Binding;
 
 cfg_if! {
     // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
@@ -42,5 +48,65 @@ impl RoxiReasoner{
     }
     pub fn get_abox_dump(& self)->String{
         self.reasoner.content_to_string()
+    }
+}
+
+#[wasm_bindgen]
+pub struct JSRSPEngine{
+    engine: RSPEngine<WindowTriple, Vec<Binding>>
+}
+struct Test{
+    f: js_sys::Function
+}
+unsafe impl Send for Test {}
+
+#[wasm_bindgen]
+impl JSRSPEngine{
+    pub fn new(width: usize, slide: usize, rules: String, abox: String, query: String, f: &js_sys::Function) -> JSRSPEngine {
+        let t = Arc::new(Mutex::new(Test{f: f.clone()}));
+        let t2 = t.clone();
+        let function: Box<dyn Fn(Vec<Binding>)-> () + Send + Sync> = Box::new(move |r|{
+            //for x in r{
+                let this = JsValue::null();
+
+                let str_val = format!("Bindings [{:?}]", r);
+
+                let x = JsValue::from(str_val);
+                let f = t2.lock().unwrap();
+                let _ = f.f.call1(&this, &x);
+            //}
+            ();
+        });
+
+        let result_consumer : ResultConsumer<Vec<Binding>> = ResultConsumer{function: Arc::new(function)};
+        let r2r = Box::new(SimpleR2R{item: TripleStore::new()});
+
+        let mut engine = RSPBuilder::new(width,slide)
+            .add_tick(Tick::TimeDriven)
+            .add_report_strategy(ReportStrategy::OnWindowClose)
+            .add_triples(&abox)
+            .add_syntax(Syntax::NTriples)
+            .add_rules(&rules)
+            .add_query(&query)
+            .add_consumer(result_consumer)
+            .add_r2r(r2r)
+            .add_r2s(StreamOperator::RSTREAM)
+            .set_operation_mode(OperationMode::SingleThread)
+            .build();
+        JSRSPEngine{engine}
+
+    }
+    pub fn add(&mut self, triple_string: String, ts: usize){
+        let mut triple_string = triple_string.clone();
+        if triple_string.ends_with("."){
+            triple_string = triple_string[..triple_string.len() - 1].to_string();
+        }
+        let mut triple_string = triple_string.split(" ");
+
+        let triple = WindowTriple{s:triple_string.next().unwrap().trim().to_string(),
+            p:triple_string.next().unwrap().trim().to_string(),
+            o: triple_string.next().unwrap().trim().to_string(),};
+
+        self.engine.add(triple,ts);
     }
 }

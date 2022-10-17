@@ -1,0 +1,6 @@
+<http://test/a> <http://test/hasLocation> <http://test/room/RedRoom>.
+<http://test/b> <http://test/hasLocation> <http://test/room/BlueRoom>.
+<http://test/b> <http://test/hasLocation> <http://test/room/RedRoom>.
+<http://test/a> <http://test/hasLocation> <http://test/room/BlueRoom>.
+<http://test/b> <http://test/hasLocation> <http://test/room/BlueRoom>.
+<http://test/a> <http://test/hasLocation> <http://test/room/RedRoom>.

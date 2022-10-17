@@ -107,12 +107,14 @@ pub struct CSPARQLWindow<I> where I: Eq + PartialEq + Clone + Debug + Hash + Sen
     report: Report<I>,
     tick: Tick,
     app_time: usize,
-    consumer: Option<Sender<ContentContainer<I>>>
+    consumer: Option<Sender<ContentContainer<I>>>,
+    call_back: Option<Box<dyn FnMut(ContentContainer<I>)->()>>
 }
+
 
 impl <I> CSPARQLWindow <I> where I: Eq + PartialEq + Clone + Debug + Hash + Send{
     pub fn new(width:usize, slide: usize, report: Report<I>, tick: Tick)-> CSPARQLWindow<I>{
-        CSPARQLWindow{slide, width, t_0: 0, app_time:0, report,consumer: None, active_windows: HashMap::new(),tick}
+        CSPARQLWindow{slide, width, t_0: 0, app_time:0, report,consumer: None, active_windows: HashMap::new(),tick, call_back: None}
     }
     pub fn add_to_window(&mut self, event_item: I, ts: usize) {
         let event_time = ts;
@@ -141,11 +143,14 @@ impl <I> CSPARQLWindow <I> where I: Eq + PartialEq + Clone + Debug + Hash + Send
                         self.app_time = ts;
                         // notify consumers
                         debug!("Window triggers! {:?}", max_window);
+                        // multithreaded consumer using channel
                         if let Some(sender) = &self.consumer{
-                            // thread::spawn(move ||{sender.send(max_window.1.clone())});
                             sender.send(max_window.1.clone());
                         }
-
+                        // single threaded consumer using callback
+                        if let Some(call_back) = &mut self.call_back{
+                            (call_back)(max_window.1.clone());
+                        }
                     }
                 }
                 _ => ()
@@ -178,6 +183,9 @@ impl <I> CSPARQLWindow <I> where I: Eq + PartialEq + Clone + Debug + Hash + Send
         let (send, recv) = channel::<ContentContainer<I>>();
         self.consumer.replace(send);
         recv
+    }
+    pub fn register_callback(&mut self, function: Box<dyn FnMut(ContentContainer<I>) -> ()>) {
+        self.call_back.replace(function);
     }
     pub fn stop(&mut self){
         self.consumer.take();
@@ -223,7 +231,9 @@ pub struct WindowTriple{
 }
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
     use std::fmt::format;
+    use std::rc::Rc;
     use std::sync::{Arc, Mutex};
     use std::thread::Thread;
     use crate::Encoder;
@@ -233,7 +243,7 @@ mod tests {
     fn test_window() {
         let mut report = Report::new();
         report.add(ReportStrategy::OnWindowClose);
-        let mut window = CSPARQLWindow { width: 10, slide: 2, app_time: 0, t_0: 0, active_windows: HashMap::new(), report, tick: Tick::TimeDriven, consumer: None };
+        let mut window = CSPARQLWindow { width: 10, slide: 2, app_time: 0, t_0: 0, active_windows: HashMap::new(), report, tick: Tick::TimeDriven, consumer: None, call_back: None };
         let receiver = window.register();
         let consumer = Consumer::new();
         consumer.start(receiver);
@@ -247,6 +257,27 @@ mod tests {
         window.stop();
         thread::sleep(Duration::from_secs(1));
         assert_eq!(5, consumer.len());
+
+    }
+    #[test]
+    fn test_window_with_call_back() {
+        let mut report = Report::new();
+        report.add(ReportStrategy::OnWindowClose);
+        let mut window = CSPARQLWindow { width: 10, slide: 2, app_time: 0, t_0: 0, active_windows: HashMap::new(), report, tick: Tick::TimeDriven, consumer: None, call_back: None };
+        let mut recieved_data = Rc::new(RefCell::new(Vec::new()));
+        let data_clone = recieved_data.clone();
+        let call_back  = move| content|{println!("Content: {:?}",content); recieved_data.borrow_mut().push(content);};
+        window.register_callback(Box::new(call_back));
+
+        let mut encoder = Encoder::new();
+
+        for i in 0..10 {
+            let triple = WindowTriple{s: format!("s{}", i), p: "p".to_string(), o: "o".to_string()};
+            window.add_to_window(triple, i);
+        }
+
+        window.stop();
+        assert_eq!(5, (*data_clone.borrow_mut()).len());
 
     }
 
