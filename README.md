@@ -63,7 +63,7 @@ console.log(reasoner.get_abox_dump());
 ```
 Example usage when using the RSP engine:
 ```javascript
-import {JSRSPEngine, RoxiReasoner} from "roxi";
+import {JSRSPEngine} from "roxi";
 // callback function
 function callback(val) {
     console.log(val);
