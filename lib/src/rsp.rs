@@ -352,7 +352,7 @@ mod tests{
             .add_r2s(StreamOperator::RSTREAM)
             .set_operation_mode(OperationMode::SingleThread)
             .build();
-        for i in 0..10 {
+        for i in 0..20 {
             let triple = WindowTriple{s:format!("<http://test/{}>", i), p:"<http://test/isIn>".to_string(),o: format!("<http://test/{}>", i+1)};
 
             engine.add(triple,i);

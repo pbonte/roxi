@@ -62,13 +62,16 @@ impl Binding  {
         result
     }
     pub fn combine(&mut self, to_combine: Binding) {
+        let binding_size = self.bindings.values().map(|v|v.len()).max().unwrap_or(1);
         for (k,v) in to_combine.bindings{
             if !self.bindings.contains_key(&k){
                 self.bindings.insert(k,Vec::new());
             }
             let mut add_vec = self.bindings.get_mut(&k).unwrap();
             for value in v{
-                add_vec.push(value);
+                for _ in 0..binding_size {
+                    add_vec.push(value);
+                }
             }
         }
     }
