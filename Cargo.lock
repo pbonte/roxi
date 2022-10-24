@@ -280,20 +280,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "js"
-version = "0.1.0"
-dependencies = [
- "cfg-if 0.1.10",
- "console_error_panic_hook",
- "getrandom",
- "js-sys",
- "roxi",
- "wasm-bindgen",
- "wasm-bindgen-test",
- "wee_alloc",
-]
-
-[[package]]
 name = "js-sys"
 version = "0.3.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -618,6 +604,20 @@ dependencies = [
  "rio_api",
  "rio_turtle",
  "spargebra",
+]
+
+[[package]]
+name = "roxi-js"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 0.1.10",
+ "console_error_panic_hook",
+ "getrandom",
+ "js-sys",
+ "roxi",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+ "wee_alloc",
 ]
 
 [[package]]
