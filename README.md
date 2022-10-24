@@ -40,10 +40,10 @@ You can use roxi both inside a browser as well as a Node JS module.
 
 ```
 cd js
-wasm-pack buid
+wasm-pack build
 ```
 
-A `pkg` folder will be generated which you can use inside the browser. You can install the package inside your application with `npm install --save-dev /path/to/roxi/js/pkg` More information and a tutorial regarding using Webassembly within webpages using webpack can be found [here](https://rustwasm.github.io/book/game-of-life/hello-world.html#putting-it-into-a-web-page)
+A `pkg` folder will be generated which contains the generated web assembly modules which can be used in the browser. You can install the package inside your application with `npm install --save-dev /path/to/roxi/js/pkg` More information and a tutorial regarding using Webassembly within webpages using webpack can be found [here](https://rustwasm.github.io/book/game-of-life/hello-world.html#putting-it-into-a-web-page)
 
 ### Using Roxi as a Node Module.
 
