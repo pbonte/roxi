@@ -66,7 +66,7 @@ Go to package.json of your project and add:
 
 Example usage when using the static reasoner:
 
-```
+```javascript
 import {RoxiReasoner} from "roxi-js";
 // create the reasoner
 const reasoner = RoxiReasoner.new();
@@ -82,7 +82,7 @@ console.log(reasoner.get_abox_dump());
 ```
 Example usage when using the RSP engine:
 
-```
+```javascript
 import {JSRSPEngine} from "roxi-js";
 // callback function
 function callback(val) {
