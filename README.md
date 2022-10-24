@@ -30,26 +30,44 @@ For example:
 ./target/release/server --abox examples/abox.ttl --tbox examples/rules.n3 
 ```
 
-## Roxi JS lib
-Make sure to have `wasm-pack`, `cargo-generate` and `npm` installed. Instruction can be found [here](https://rustwasm.github.io/book/game-of-life/setup.html).
-How to build RoXi through web assembly:
+## Using Roxi with Javascript/Typescript
+
+Make sure that you have `wasm-pack`, `cargo-generate` and `npm` installed. Instructions to install those can be found [here](https://rustwasm.github.io/book/game-of-life/setup.html).
+
+You can use roxi both inside a browser as well as a Node JS module.
+
+### Using Roxi inside a browser.
+
 ```
 cd js
-wasm-pack build
+wasm-pack buid
 ```
-This will generate a `pkg` folder. Now you can add RoXi as a dependency in your npm project:
+
+A `pkg` folder will be generated which you can use inside the browser. You can install the package inside your application with `npm install --save-dev /path/to/roxi/js/pkg` More information and a tutorial regarding using Webassembly within webpages using webpack can be found [here](https://rustwasm.github.io/book/game-of-life/hello-world.html#putting-it-into-a-web-page)
+
+### Using Roxi as a Node Module.
+
 ```
-{
-  // ...
+cd js
+wasm-pack build --target nodejs
+```
+You can install the package with `npm install --save-dev path/to/roxi/js/pkg`. The package will be found in your dependencies as,
+```
   "dependencies": {
-   "roxi": "file:../pkg",
-    // ...
+    "roxi-js": "file:../roxi/js/pkg"
   }
-}
 ```
+
+Go to package.json of your project and add:
+
+```
+  "type": "module"
+```
+
 Example usage when using the static reasoner:
-```javascript
-import {RoxiReasoner} from "roxi";
+
+```
+import {RoxiReasoner} from "roxi-js";
 // create the reasoner
 const reasoner = RoxiReasoner.new();
 // add ABox 
@@ -60,10 +78,12 @@ reasoner.add_rules("@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <ht
 reasoner.materialize();
 // log a dump of the materialized abox
 console.log(reasoner.get_abox_dump());
+
 ```
 Example usage when using the RSP engine:
-```javascript
-import {JSRSPEngine} from "roxi";
+
+```
+import {JSRSPEngine} from "roxi-js";
 // callback function
 function callback(val) {
     console.log(val);
@@ -84,6 +104,8 @@ let event = ... ;
 currentTimeStamp += 1;
 rspEngine.add(event, currentTimeStamp);
 
-
 ```
+
+
+
 
