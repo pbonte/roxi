@@ -86,4 +86,4 @@ TP = { WS*~Subject ~WS+~ Property ~WS+~ Object ~WS* ~"."? ~WS* }
 Body = {"{"~TP+~"}"}
 Head = {"{"~WS*~TP~WS*~"}"}
 rule = { Body~WS*~"=>"~WS*~Head~WS*~"."? ~WS*}
-document = {Prefix* ~ NewLine* ~rule+}
+document = {Prefix* ~ NewLine* ~rule*}

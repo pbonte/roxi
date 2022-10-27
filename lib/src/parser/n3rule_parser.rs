@@ -159,4 +159,13 @@ mod tests {
         assert_eq!(rules.len(), 2);
 
     }
+    #[test]
+    fn parse_empty_rule() {
+        let mut encoder = Encoder::new();
+
+        let rules = parse("", &mut encoder).unwrap();
+        println!("{:?}",rules);
+        assert_eq!(0,rules.len());
+
+    }
 }

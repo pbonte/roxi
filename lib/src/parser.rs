@@ -165,5 +165,12 @@ mod test{
         assert_eq!(true,triples.is_err());
 
     }
+    #[test]
+    fn test_empty_abox_parsing(){
+        let ntriples_file = "";
+        let mut encoder = Encoder::new();
+        let triples = Parser::parse_triples(ntriples_file, &mut encoder, Syntax::NTriples).unwrap();
+        assert_eq!(0, triples.len());
+    }
 
 }
