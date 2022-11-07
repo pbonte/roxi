@@ -21,6 +21,13 @@ impl Encoder{
         }
 
     }
+    pub fn get(&self, uri:&str) -> Option<usize>{
+        if let Some(encoded_uri) = self.encoded.get(uri){
+            return Some(*encoded_uri);
+        }else{
+            None
+        }
+    }
 
     pub fn decode(&self, encoded: &usize)->Option<&String>{
         self.decoded.get(encoded)

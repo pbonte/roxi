@@ -1,7 +1,10 @@
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fmt::Error;
 use std::iter::empty;
 use std::rc::Rc;
+use oxigraph::sparql::Variable;
 use spargebra::Query;
 use spargebra::Query::Select;
 use spargebra::algebra::*;
@@ -10,6 +13,7 @@ use crate::{Encoder, Parser, Syntax, TermImpl, Triple, TripleIndex, TripleStore,
 use crate::sparql::EncodedTerm::NamedNode;
 use crate::sparql::PlanNode::QuadPattern;
 use crate::tripleindex::EncodedBinding;
+
 
 fn extract_triples(triple_patterns: &Vec<TriplePattern>, encoder: &mut Encoder)-> Vec<Triple>{
     let mut triples = Vec::new();
@@ -44,7 +48,32 @@ pub enum PlanNode{
         child: Box<Self>,
         expression: Box<PlanExpression>,
     },
+    Aggregate {
+        // By definition the group by key are the range 0..key_mapping.len()
+        child: Box<Self>,
+        keys: Vec<Variable>, // aggregate key pairs of (variable key in child, variable key in output)
+        aggregates: Rc<Vec<(PlanAggregation, Variable)>>,
+    },
+    Extend{
+        child: Box<Self>,
+        from: Variable,
+        to: Variable
+    },
     Done
+}
+#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+pub struct PlanAggregation {
+    pub function: PlanAggregationFunction,
+    pub distinct: bool,
+}
+
+#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+pub enum PlanAggregationFunction {
+    Count,
+    Sum,
+    Min,
+    Max,
+    Avg
 }
 fn new_join(left: PlanNode, right: PlanNode) -> PlanNode{
     PlanNode::Join {left:Box::new(left),right: Box::new(right)}
@@ -54,15 +83,65 @@ fn extract_query_plan(graph_pattern: &GraphPattern, encoder: &mut Encoder) -> Pl
         GraphPattern::Bgp {patterns}=> patterns.iter().map(|t| QuadPattern {pattern:Triple::from(t.subject.to_string(),t.predicate.to_string(),t.object.to_string(), encoder)}).
             reduce(new_join).unwrap(),
         GraphPattern::Project {inner,variables}=>{
-
             PlanNode::Project {child: Box::new(extract_query_plan(inner,encoder)), mapping: variables.iter().map(|v|encoder.add(v.as_str().to_string())).collect()}
         },
         GraphPattern::Filter {expr, inner} =>{
             println!("Expression: {:?}",expr);
             println!("inner: {:?}",inner);
             PlanNode::Filter{child: Box::new(extract_query_plan(inner, encoder)), expression: Box::new(extract_expression(expr, encoder))}
+        },
+        GraphPattern::Group {
+            inner,
+            variables: by,
+            aggregates,
+        } => {
+            let mut inner_variables = by.clone();
+            println!(" othere vars {:?}", aggregates);
+            println!("  vars {:?}", by);
+
+            PlanNode::Aggregate {
+                child: Box::new(extract_query_plan(
+                    inner,
+                    encoder,
+                )),
+                keys: inner_variables.clone(),
+                aggregates: Rc::new(
+                    aggregates
+                        .iter()
+                        .map(|(v, a)| {
+                            Ok((
+                                build_for_aggregate(a, &mut inner_variables).unwrap(),
+                                v.clone(),
+                            ))
+                        })
+                        .collect::<Result<Vec<_>, Error>>().unwrap(),
+                ),
+            }
+        },
+        GraphPattern::Extend {inner, expression,variable } => {
+            if let Expression::Variable(var_exp) = expression{
+                encoder.add(var_exp.clone().into_string());
+
+                encoder.add(variable.clone().into_string());
+                PlanNode::Extend{child:Box::new(extract_query_plan(inner,encoder)) , from: var_exp.clone(), to: variable.clone()}
+            }else{
+                PlanNode::Done
+            }
         }
         _ => PlanNode::Done,
+    }
+}
+fn build_for_aggregate(
+    aggregate: &AggregateExpression,
+    variables: &mut Vec<Variable>
+) -> Result<PlanAggregation, String> {
+    match aggregate {
+        AggregateExpression::Count { expr, distinct } => Ok(PlanAggregation {
+            function: PlanAggregationFunction::Count,
+            distinct: *distinct,
+        }),
+
+        _ => {Err("Failed".to_string())}
     }
 }
 
@@ -96,10 +175,10 @@ fn decode(input: &EncodedBinding, encoder: &Encoder) -> Binding{
     Binding{var: encoder.decode(&input.var).unwrap_or(&"".to_string()).clone(),
         val: encoder.decode(&input.val).unwrap_or(&"".to_string()).clone()}
 }
-pub fn evaluate_plan_and_debug<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex, encoder: &'a Encoder) -> Box<dyn Iterator<Item=Vec<Binding>> + 'a> {
+pub fn evaluate_plan_and_debug<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex, encoder: &'a  Encoder) -> Box<dyn Iterator<Item=Vec<Binding>> + 'a> {
     Box::new(evaluate_plan(plan_node,triple_index,encoder).map(|v|v.into_iter().map(|b|decode(&b,encoder)).collect::<Vec<Binding>>()))
 }
-pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex, encoder: &'a Encoder) -> Box<dyn Iterator<Item=Vec<EncodedBinding>> + 'a> {
+pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex, encoder: &'a  Encoder) -> Box<dyn Iterator<Item=Vec<EncodedBinding>> + 'a> {
     match plan_node{
         PlanNode::QuadPattern {pattern: triple}=>{
 
@@ -166,7 +245,98 @@ pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex,
                 }
             }))
             },
+        PlanNode::Aggregate {child,keys,aggregates}=>{
+            let child = evaluate_plan(child,triple_index, encoder);
+            println!("keeys: {:?}", keys);
+                let (aggregate_function, aggregate_var) = aggregates.iter().next().unwrap();
+            //TODO match aggregate function
+            println!("aggregate var: {:?}", aggregate_var.clone().into_string());
+            let aggregate_encoded = encoder.get(aggregate_var.as_str()).unwrap();
+            println!("encoded aggregate var: {:?}", aggregate_encoded);
+
+            let mut grouped_accumulators =
+                    Rc::new(RefCell::new(HashMap::<Vec<usize>, CountAccumulator>::default()));
+            let  local_group = grouped_accumulators.clone();
+                child.for_each(move |child_binding| {
+                    let key_values : Vec<usize> = keys.iter().map(|v| encoder.get(v.as_str()).unwrap()).collect();
+                    println!("encoded keys {:?}", key_values);
+                    let mut converted_keys = Vec::with_capacity(key_values.len());
+                    for key_val in key_values{
+                        for binding in child_binding.clone(){
+                            if key_val == binding.var {
+                                println!("encoded var {:?} decoded: {:?}", binding.val, encoder.decode(&binding.val));
+                                converted_keys.push(binding.val)
+                            }
+                        }
+                    }
+                    {
+                        let mut temp_acc = grouped_accumulators.borrow_mut();
+                        let t = temp_acc.entry(converted_keys).or_insert_with(|| CountAccumulator::default());
+                        t.add(child_binding);
+                    }
+                    println!("Groups {:?}", grouped_accumulators);
+
+                }
+
+
+                );
+                //build a new set of bindings
+            {
+                let mut temp_acc = local_group.borrow_mut();
+                let mut new_bindings = Vec::with_capacity(temp_acc.len());
+                let key_values : Vec<usize> = keys.iter().map(|v| encoder.get(v.as_str()).unwrap()).collect();
+
+                for (group_keys, group_value) in temp_acc.iter(){
+                    let mut new_row = Vec::with_capacity(key_values.len()+1);
+                    let binding = EncodedBinding{var: aggregate_encoded, val: group_value.get() };
+                    new_row.push(binding);
+                    for (i,key_val) in key_values.clone().into_iter().enumerate(){
+                        let binding = EncodedBinding{var: key_val, val: group_keys.get(i).unwrap().clone() };
+                        new_row.push(binding);
+                    }
+                    new_bindings.push(new_row);
+                }
+                println!("New bindings: {:?}", new_bindings);
+                Box::new(new_bindings.into_iter())
+            }
+
+
+
+
+        },
+        PlanNode::Extend {child, from, to}=>{
+            let child_it = evaluate_plan(child, triple_index,encoder);
+            let encoded_from = encoder.get(from.as_str()).unwrap();
+            let encoded_to = encoder.get(to.as_str()).unwrap();
+            Box::new(child_it.map(move |binding|{
+                let projection : Vec<EncodedBinding>= binding.into_iter().map(|b|{
+                    if b.var == encoded_from{
+                        EncodedBinding{var: encoded_to, ..b}
+                    }else{
+                        b
+                    }
+                }).collect();
+                projection
+            }))
+        }
         PlanNode::Done => Box::new(empty())
+    }
+}
+#[derive(Debug)]
+pub struct CountAccumulator{
+    count: usize
+}
+impl CountAccumulator{
+    fn add(&mut self, _item: Vec<EncodedBinding>){
+        self.count+=1;
+    }
+    fn get(&self) -> usize{
+        self.count
+    }
+}
+impl Default for CountAccumulator{
+    fn default() -> Self {
+        CountAccumulator{count: 0}
     }
 }
 fn eval_expression<'a>(expression: &'a PlanExpression, encoder: &'a Encoder) ->  Box<dyn Fn(&Vec<EncodedBinding>) -> Option<EncodedTerm> + 'a>{
@@ -337,7 +507,7 @@ mod tests{
         let query_str = "Select * WHERE {  ?s <http://test/hasVal> ?o2  . Filter(?o2 > 1). }";
         let query = Query::parse(query_str, None).unwrap();
         let plan = eval_query(&query, &index, &mut encoder);
-        let iterator = evaluate_plan(&plan, &index, &encoder);
+        let iterator = evaluate_plan(&plan, &index, & encoder);
         assert_eq!(1, iterator.collect::<Vec<Vec<EncodedBinding>>>().len());
     }
     #[test]
@@ -346,7 +516,7 @@ mod tests{
         let query_str = "Select * WHERE {  ?s <http://test/hasVal> ?o2  . Filter(?o2 >= 1). }";
         let query = Query::parse(query_str, None).unwrap();
         let plan = eval_query(&query, &index, &mut encoder);
-        let iterator = evaluate_plan(&plan, &index, &encoder);
+        let iterator = evaluate_plan(&plan, &index, & encoder);
         assert_eq!(2, iterator.collect::<Vec<Vec<EncodedBinding>>>().len());
     }
     #[test]
@@ -355,7 +525,20 @@ mod tests{
         let query_str = "Select * WHERE {  ?s <http://test/hasVal> ?o2  . Filter(?o2 <= 1). }";
         let query = Query::parse(query_str, None).unwrap();
         let plan = eval_query(&query, &index, &mut encoder);
-        let iterator = evaluate_plan(&plan, &index, &encoder);
+        let iterator = evaluate_plan(&plan, &index, & encoder);
         assert_eq!(1, iterator.collect::<Vec<Vec<EncodedBinding>>>().len());
+    }
+    #[test]
+    fn test_group_by_count_aggregation() {
+        let (index, mut encoder) = prepare_test();
+        let query_str = "Select (COUNT(?s) AS ?count) ?o2 WHERE {  ?s <http://test/hasVal> ?o2  .  } GroupBy ?s ?o2";
+        let query = Query::parse(query_str, None).unwrap();
+        println!("{:?}", query);
+        let plan = eval_query(&query, &index, &mut encoder);
+        let iterator = evaluate_plan_and_debug(&plan, &index, & encoder);
+        for r in iterator{
+            println!("result: {:?}", r);
+        }
+        //assert_eq!(1, iterator.collect::<Vec<Vec<EncodedBinding>>>().len());
     }
 }

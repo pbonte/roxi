@@ -15,6 +15,7 @@ rio_turtle = "0.7.1"
 pest = "2.0"
 pest_derive = "2.0"
 either = "1.8.0"
+oxigraph = "0.3.6"
 
 
 [[bench]]
