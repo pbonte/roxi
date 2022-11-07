@@ -3,10 +3,12 @@ extern crate wasm_bindgen;
 
 mod utils;
 
+use std::fmt::format;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use cfg_if::cfg_if;
-use js_sys::Function;
+use js_sys::{Array, Function};
+use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use roxi::parser::Syntax;
 use roxi::TripleStore;
@@ -61,6 +63,23 @@ struct Test{
 unsafe impl Send for Test {}
 
 #[wasm_bindgen]
+#[derive(Debug)]
+pub struct JSBinding{
+    val:String, var:String
+}
+#[wasm_bindgen]
+impl JSBinding{
+    pub fn getValue(&self) -> String{
+        self.val.clone()
+    }
+    pub fn getVar(&self) -> String {
+        self.var.clone()
+    }
+    pub fn toString(&self) -> String{
+        format!("Binding{{{:?}: {:?}}}",self.var.clone(), self.val.clone())
+    }
+}
+#[wasm_bindgen]
 impl JSRSPEngine{
     pub fn new(width: usize, slide: usize, rules: String, abox: String, query: String, f: &js_sys::Function) -> JSRSPEngine {
         let t = Arc::new(Mutex::new(Test{f: f.clone()}));
@@ -68,10 +87,10 @@ impl JSRSPEngine{
         let function: Box<dyn Fn(Vec<Binding>)-> () + Send + Sync> = Box::new(move |r|{
             //for x in r{
                 let this = JsValue::null();
-
-                let str_val = format!("Bindings [{:?}]", r);
-
-                let x = JsValue::from(str_val);
+                //convert to JSBindings and JSValues
+                let r_js: Vec<JsValue> = r.into_iter().map(|binding|JSBinding{var: binding.var, val: binding.val}.into()).collect();
+                // convert to JS Array
+                let x = JsValue::from(r_js.into_iter().collect::<Array>());
                 let f = t2.lock().unwrap();
                 let _ = f.f.call1(&this, &x);
             //}
@@ -80,7 +99,6 @@ impl JSRSPEngine{
 
         let result_consumer : ResultConsumer<Vec<Binding>> = ResultConsumer{function: Arc::new(function)};
         let r2r = Box::new(SimpleR2R{item: TripleStore::new()});
-
         let mut engine = RSPBuilder::new(width,slide)
             .add_tick(Tick::TimeDriven)
             .add_report_strategy(ReportStrategy::OnWindowClose)
