@@ -53,7 +53,6 @@ fn main() {
     }
 
     println!("Loading data ABox in NTriples");
-    let mut encoder = Encoder::new();
     let mut store = TripleStore::new();
     let file_content = read_to_string(args.abox).unwrap();
     store.load_triples(&file_content,Syntax::NTriples);

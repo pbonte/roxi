@@ -247,7 +247,6 @@ mod tests {
         let receiver = window.register();
         let consumer = Consumer::new();
         consumer.start(receiver);
-        let mut encoder = Encoder::new();
 
         for i in 0..10 {
             let triple = WindowTriple{s: format!("s{}", i), p: "p".to_string(), o: "o".to_string()};
@@ -269,7 +268,6 @@ mod tests {
         let call_back  = move| content|{println!("Content: {:?}",content); recieved_data.borrow_mut().push(content);};
         window.register_callback(Box::new(call_back));
 
-        let mut encoder = Encoder::new();
 
         for i in 0..10 {
             let triple = WindowTriple{s: format!("s{}", i), p: "p".to_string(), o: "o".to_string()};

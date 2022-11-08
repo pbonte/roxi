@@ -16,21 +16,21 @@ impl Default for Syntax{
 }
 
 impl Parser {
-    pub fn parse_triples(data: &str, encoder: &mut Encoder, syntax: Syntax) -> Result<Vec<Triple>, &'static str>{
+    pub fn parse_triples(data: &str,  syntax: Syntax) -> Result<Vec<Triple>, &'static str>{
         if syntax == Syntax::Turtle || syntax == Syntax::NTriples {
-            Self::parse_triples_helper(data,encoder,syntax)
+            Self::parse_triples_helper(data,syntax)
         }else{
-            Self::parse_quads_helper(data,encoder, syntax)
+            Self::parse_quads_helper(data, syntax)
         }
 
     }
-    fn parse_quads_helper(data: &str, encoder: &mut Encoder, syntax: Syntax) -> Result<Vec<Triple>, &'static str> {
+    fn parse_quads_helper(data: &str,  syntax: Syntax) -> Result<Vec<Triple>, &'static str> {
         let mut triples = Vec::new();
         let closure_quad = &mut |t: rio_api::model::Quad| {
-            let s = VarOrTerm::new_term(t.subject.to_string(), encoder);
-            let p = VarOrTerm::new_term(t.predicate.to_string(), encoder);
-            let o = VarOrTerm::new_term(t.object.to_string(), encoder);
-            let g = t.graph_name.map(|g|VarOrTerm::new_term(g.to_string(),encoder));
+            let s = VarOrTerm::new_term(t.subject.to_string());
+            let p = VarOrTerm::new_term(t.predicate.to_string());
+            let o = VarOrTerm::new_term(t.object.to_string());
+            let g = t.graph_name.map(|g|VarOrTerm::new_term(g.to_string()));
             triples.push(Triple { s, p, o, g });
             Ok(()) as Result<(), TurtleError>
         };
@@ -47,12 +47,12 @@ impl Parser {
 
 
     }
-    fn parse_triples_helper(data: &str, encoder: &mut Encoder, syntax: Syntax) -> Result<Vec<Triple>, &'static str>{
+    fn parse_triples_helper(data: &str,  syntax: Syntax) -> Result<Vec<Triple>, &'static str>{
         let mut triples = Vec::new();
         let closure_triple = &mut |t: rio_api::model::Triple| {
-            let s = VarOrTerm::new_term(t.subject.to_string(),encoder);
-            let p = VarOrTerm::new_term(t.predicate.to_string(),encoder);
-            let o = VarOrTerm::new_term(t.object.to_string(), encoder);
+            let s = VarOrTerm::new_term(t.subject.to_string());
+            let p = VarOrTerm::new_term(t.predicate.to_string());
+            let o = VarOrTerm::new_term(t.object.to_string());
             triples.push(Triple { s, p, o, g: None });
             Ok(()) as Result<(), TurtleError>
         };
@@ -66,7 +66,7 @@ impl Parser {
             _ => Err("Parsing error!")
         }
     }
-    fn parse_triple(data: &str, encoder: &mut Encoder) -> Triple {
+    fn parse_triple(data: &str) -> Triple {
         let items: Vec<&str> = data.split(" ").collect();
         let s = items.get(0).unwrap();
         let p = items.get(1).unwrap();
@@ -78,7 +78,7 @@ impl Parser {
         } else {
             items.get(2).unwrap()
         };
-        let mut convert_item = |item: &&str| { if item.starts_with("?") { VarOrTerm::new_var(item.to_string(), encoder) } else { VarOrTerm::new_term(item.to_string(), encoder) } };
+        let mut convert_item = |item: &&str| { if item.starts_with("?") { VarOrTerm::new_var(item.to_string()) } else { VarOrTerm::new_term(item.to_string()) } };
         let s = convert_item(s);
         let p = convert_item(p);
         let o = convert_item(&o);
@@ -90,7 +90,7 @@ impl Parser {
         chars.next_back();
         chars.as_str()
     }
-    pub fn parse(data: String, encoder: &mut Encoder) -> (Vec<Triple>, Vec<Rule>) {
+    pub fn parse(data: String) -> (Vec<Triple>, Vec<Rule>) {
         let mut rules = Vec::new();
         let mut content = Vec::new();
         //line by line
@@ -100,26 +100,26 @@ impl Parser {
                 let rule: Vec<&str> = line.split("=>").collect();
                 let body = Self::rem_first_and_last(rule.get(0).unwrap());
                 let head = Self::rem_first_and_last(rule.get(1).unwrap());
-                let head_triple = Self::parse_triple(head, encoder);
+                let head_triple = Self::parse_triple(head);
                 let mut body_triples = Vec::new();
                 for body_triple in body.split(".") {
                     if body_triple.len() > 0 {
-                        body_triples.push(Self::parse_triple(body_triple, encoder));
+                        body_triples.push(Self::parse_triple(body_triple));
                     }
                 }
                 rules.push(Rule { head: head_triple, body: body_triples })
             } else {
                 //process triple
                 if line.len() > 0 {
-                    let triple = Self::parse_triple(line, encoder);
+                    let triple = Self::parse_triple(line);
                     content.push(triple);
                 }
             }
         }
         (content, rules)
     }
-    pub fn parse_rules(parse_string: &str, encoder: &mut Encoder) -> Result<Vec<Rule>,&'static str>{
-        n3rule_parser::parse(parse_string,encoder)
+    pub fn parse_rules(parse_string: &str) -> Result<Vec<Rule>,&'static str>{
+        n3rule_parser::parse(parse_string)
     }
 }
 
@@ -131,15 +131,13 @@ mod test{
 <http://example.com/foo> <http://schema.org/name> \"Foo\" .
 <http://example.com/bar> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
 <http://example.com/bar> <http://schema.org/name> \"Bar\" .";
-        let mut encoder = Encoder::new();
-        let triples = Parser::parse_triples(ntriples_file, &mut encoder, Syntax::NTriples).unwrap();
+        let triples = Parser::parse_triples(ntriples_file,  Syntax::NTriples).unwrap();
         assert_eq!(4, triples.len());
 
         let trig_file = "<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person>, <http://schema.org/Student> .
 <http://example.com/foo> <http://schema.org/name> \"Foo\" .
 <http://example.com/bar> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person>; <http://schema.org/name> \"Bar\" .";
-        let mut encoder = Encoder::new();
-        let triples = Parser::parse_triples(trig_file, &mut encoder, Syntax::TriG).unwrap();
+        let triples = Parser::parse_triples(trig_file,  Syntax::TriG).unwrap();
         assert_eq!(5, triples.len());
 
         let turtle = "@prefix schema: <http://schema.org/> .
@@ -147,29 +145,25 @@ mod test{
     schema:name  \"Foo\" .
 <http://example.com/bar> a schema:Person ;
     schema:name  \"Bar\" .";
-        let mut encoder = Encoder::new();
-        let triples = Parser::parse_triples(turtle, &mut encoder, Syntax::Turtle).unwrap();
+        let triples = Parser::parse_triples(turtle,  Syntax::Turtle).unwrap();
         assert_eq!(4, triples.len());
 
         let nquads = "<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> <http://example.com/> .
 <http://example.com/foo> <http://schema.org/name> \"Foo\" <http://example.com/> .
 <http://example.com/bar> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
 <http://example.com/bar> <http://schema.org/name> \"Bar\" .";
-        let mut encoder = Encoder::new();
-        let triples = Parser::parse_triples(nquads                  , &mut encoder, Syntax::NQuads).unwrap();
+        let triples = Parser::parse_triples(nquads,  Syntax::NQuads).unwrap();
         assert_eq!(4, triples.len());
 
         let parsing_error = "<http://example.com/foo> http://www.w3.org/1999/02/22-rdf-syntax-ns#typehema.org/Person";
-        let mut encoder = Encoder::new();
-        let triples = Parser::parse_triples(parsing_error                  , &mut encoder, Syntax::NQuads);
+        let triples = Parser::parse_triples(parsing_error ,  Syntax::NQuads);
         assert_eq!(true,triples.is_err());
 
     }
     #[test]
     fn test_empty_abox_parsing(){
         let ntriples_file = "";
-        let mut encoder = Encoder::new();
-        let triples = Parser::parse_triples(ntriples_file, &mut encoder, Syntax::NTriples).unwrap();
+        let triples = Parser::parse_triples(ntriples_file,Syntax::NTriples).unwrap();
         assert_eq!(0, triples.len());
     }
 

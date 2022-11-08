@@ -9,7 +9,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use spargebra::Query;
 use crate::rsp::s2r::{ContentContainer, CSPARQLWindow, Report, ReportStrategy, Tick, WindowTriple};
-use crate::{ Syntax, Triple, TripleStore};
+use crate::{Encoder, Syntax, Triple, TripleStore};
 use crate::rsp::r2s::{Relation2StreamOperator, StreamOperator};
 use crate::rsp::r2r::{R2ROperator};
 use crate::sparql::{Binding, eval_query, evaluate_plan_and_debug};
@@ -218,27 +218,26 @@ impl R2ROperator<WindowTriple,Vec<Binding>> for SimpleR2R {
     }
 
     fn add(&mut self, data: WindowTriple) {
-        let encoded_triple = Triple::from(data.s,data.p,data.o,&mut self.item.encoder);
+        let encoded_triple = Triple::from(data.s,data.p,data.o);
         self.item.add(encoded_triple);
     }
 
     fn remove(&mut self, data: &WindowTriple) {
-        let encoded_triple = Triple::from(data.s.clone(),data.p.clone(),data.o.clone(),&mut self.item.encoder);
+        let encoded_triple = Triple::from(data.s.clone(),data.p.clone(),data.o.clone());
 
         self.item.remove_ref(&encoded_triple);
     }
 
     fn materialize(&mut self) -> Vec<WindowTriple>{
         let inferred = self.item.materialize();
-        inferred.into_iter().map(|t|WindowTriple{s:self.item.encoder.decode(&t.s.to_encoded()).unwrap().to_string(),
-        p:self.item.encoder.decode(&t.p.to_encoded()).unwrap().to_string(),
-        o:self.item.encoder.decode(&t.o.to_encoded()).unwrap().to_string()}).collect()
+        inferred.into_iter().map(|t|WindowTriple{s:Encoder::decode(&t.s.to_encoded()).unwrap().to_string(),
+        p:Encoder::decode(&t.p.to_encoded()).unwrap().to_string(),
+        o:Encoder::decode(&t.o.to_encoded()).unwrap().to_string()}).collect()
     }
 
     fn execute_query(&self, query: &Query) -> Vec<Vec<Binding>> {
-        let mut encoder = self.item.encoder.clone();
-        let plan = eval_query(&query, &self.item.triple_index, &mut encoder);
-        let iterator = evaluate_plan_and_debug(&plan, &self.item.triple_index, &mut encoder);
+        let plan = eval_query(&query, &self.item.triple_index);
+        let iterator = evaluate_plan_and_debug(&plan, &self.item.triple_index);
         iterator.collect()
     }
 }

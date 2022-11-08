@@ -1,16 +1,23 @@
 use std::collections::HashMap;
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
+
+
+static GLOBAL_ENCODER: Lazy<Mutex<InternalEncoder>> = Lazy::new(|| {Mutex::new(InternalEncoder::new())});
 
 #[derive(Debug,  Clone, Eq, PartialEq)]
-pub struct Encoder{
+pub struct InternalEncoder{
     encoded: HashMap<String, usize>,
     decoded: HashMap<usize,String>,
     counter: usize
 }
-impl Encoder{
-    pub fn new() -> Encoder{
-        Encoder{encoded: HashMap::new(), decoded: HashMap::new(), counter:0}
+
+
+impl InternalEncoder{
+    fn new() -> InternalEncoder{
+        InternalEncoder{encoded: HashMap::new(), decoded: HashMap::new(), counter:0}
     }
-    pub fn add(&mut self, uri:String) -> usize{
+    fn add(&mut self, uri:String) -> usize{
         if let Some(encoded_uri) = self.encoded.get(&uri){
             return *encoded_uri;
         }else{
@@ -21,7 +28,7 @@ impl Encoder{
         }
 
     }
-    pub fn get(&self, uri:&str) -> Option<usize>{
+    fn get(&self, uri:&str) -> Option<usize>{
         if let Some(encoded_uri) = self.encoded.get(uri){
             return Some(*encoded_uri);
         }else{
@@ -29,13 +36,51 @@ impl Encoder{
         }
     }
 
-    pub fn decode(&self, encoded: &usize)->Option<&String>{
+    fn decode(&self, encoded: &usize)->Option<&String>{
         self.decoded.get(encoded)
     }
 }
+#[derive(Debug)]
+pub struct Encoder{}
+impl Encoder{
+
+    pub fn add(uri:String) -> usize{
+        let mut encoder = GLOBAL_ENCODER.lock().unwrap();
+        if let Some(encoded_uri) = encoder.encoded.get(&uri){
+            return *encoded_uri;
+        }else{
+            let current_counter = encoder.counter;
+            encoder.encoded.insert(uri.clone(),current_counter);
+            encoder.decoded.insert(current_counter,uri);
+            encoder.counter+=1;
+            encoder.counter -1
+        }
+
+    }
+    pub fn get(uri:&str) -> Option<usize>{
+        let encoder = GLOBAL_ENCODER.lock().unwrap();
+        if let Some(encoded_uri) = encoder.encoded.get(uri){
+            return Some(*encoded_uri);
+        }else{
+            None
+        }
+    }
+
+    pub fn decode(encoded: &usize)->Option<String>{
+        let encoder = GLOBAL_ENCODER.lock().unwrap();
+        let decoded = encoder.decoded.get(encoded);
+        if let Some(decoded_value) = decoded{
+            Some(decoded_value.clone())
+        }else{
+            None
+        }
+    }
+
+}
+
 #[test]
 fn test_encoding(){
-    let mut encoder = Encoder::new();
+    let mut encoder = InternalEncoder::new();
     let _encoded1 = encoder.add("http://test/1".to_string());
     let encoded2 = encoder.add("http://test/2".to_string());
     let encoded3 = encoder.add("http://test/3".to_string());

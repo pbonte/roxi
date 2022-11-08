@@ -12,44 +12,43 @@ pub struct DRed{
     pub rules: Vec<Rule>,
     pub rules_index: RuleIndex,
     pub triple_index : TripleIndex,
-    pub encoder: Encoder,
     reasoner: Reasoner,
 }
 
 impl DRed{
     fn new() -> Self{
-        Self{rules: Vec::new(), rules_index: RuleIndex::new(), triple_index: TripleIndex::new(), encoder: Encoder::new(), reasoner: Reasoner{} }
+        Self{rules: Vec::new(), rules_index: RuleIndex::new(), triple_index: TripleIndex::new(),  reasoner: Reasoner{} }
     }
     pub fn from(data:&str) -> Self{
         let triple_store = TripleStore::from(&data);
-        Self{rules: triple_store.rules, rules_index: triple_store.rules_index , triple_index: triple_store.triple_index, encoder: triple_store.encoder,  reasoner: Reasoner{} }
+        Self{rules: triple_store.rules, rules_index: triple_store.rules_index , triple_index: triple_store.triple_index,   reasoner: Reasoner{} }
     }
     pub fn add(&mut self, triple: Triple){
-        trace!{"Adding triple: {:?}", Utils::decode_triple(&self.encoder,&triple) }
+        trace!{"Adding triple: {:?}", Utils::decode_triple(&triple) }
         self.triple_index.add(triple);
     }
     pub fn add_ref(&mut self, triple: Rc<Triple>){
-        trace!{"Adding triple: {:?}", Utils::decode_triple(&self.encoder,triple.as_ref()) }
+        trace!{"Adding triple: {:?}", Utils::decode_triple(triple.as_ref()) }
         self.triple_index.add_ref(triple);
     }
     pub fn remove_ref(&mut self, triple: Rc<Triple>){
         //println!("{:?}",self.encoder);
 
-        trace!{"Removing triple: {:?}", Utils::decode_triple(&self.encoder,triple.as_ref()) }
+        trace!{"Removing triple: {:?}", Utils::decode_triple(triple.as_ref()) }
         // over delete
         let mut over_deletion = Vec::new();
         let mut stack = Vec::from([triple.as_ref().clone()]);
 
         while let Some(current_triple) = stack.pop(){
-            println!("Investigating deletion {:?}",Utils::decode_triple(&self.encoder,&current_triple));
+            println!("Investigating deletion {:?}",Utils::decode_triple(&current_triple));
 
             let matching_rules = self.rules_index.find_match(&current_triple);
             let matching_rules: Vec<Rule> = matching_rules.clone().into_iter().flat_map(|r| Reasoner::substitute_rule(&current_triple, r)).collect();
-            matching_rules.iter().map(|r|Utils::decode_rule(&self.encoder,r)).for_each(|r|println!("Matching rules {:?}",r));
+            matching_rules.iter().map(|r|Utils::decode_rule(r)).for_each(|r|println!("Matching rules {:?}",r));
 
             let delete_triples = Reasoner::infer_rule_heads(&self.triple_index, None, matching_rules);
             delete_triples.into_iter().for_each(|t| {
-                println!("Marked head for deletion {:?}",Utils::decode_triple(&self.encoder,&t));
+                println!("Marked head for deletion {:?}",Utils::decode_triple(&t));
                 if ! over_deletion.contains(&t){
                     stack.push(t.clone());
                     over_deletion.push(t);
@@ -58,7 +57,7 @@ impl DRed{
 
         }
 
-        over_deletion.iter().map(|t|Utils::decode_triple(&self.encoder,t)).for_each(|t|println!("Overdeleted {:?}",t));
+        over_deletion.iter().map(|t|Utils::decode_triple(t)).for_each(|t|println!("Overdeleted {:?}",t));
         // delete overdeletion
         over_deletion.iter().for_each(|t|self.triple_index.remove_ref(t));
         // delete E-
@@ -75,18 +74,18 @@ impl DRed{
             prev_delete_num = delete_num;
             for (delete_triple, mut delete_status) in  &delete_list {
                 if !delete_status {
-                    println!("Trying redirive {:?}", Utils::decode_triple(&self.encoder, &delete_triple));
+                    println!("Trying redirive {:?}", Utils::decode_triple( &delete_triple));
 
                     let matched_rules = Self::find_rules_by_head(&self.rules_index, &delete_triple);
                     for (matched_rule, bindings) in matched_rules {
-                        println!("\t matched rule {:?}", Utils::decode_rule(&self.encoder, &matched_rule));
+                        println!("\t matched rule {:?}", Utils::decode_rule( &matched_rule));
 
                         println!("\tBindings {:?}", bindings);
                         let substitute_rule = Reasoner::substitute_rule_body_with_binding(&matched_rule, &bindings);
-                        substitute_rule.iter().for_each(|r| println!("\t subsitute rule_item {:?}", Utils::decode_triple(&self.encoder, r)));
+                        substitute_rule.iter().for_each(|r| println!("\t subsitute rule_item {:?}", Utils::decode_triple( r)));
                         if let Some(_) = SimpleQueryEngine::query(&self.triple_index, &substitute_rule, None) {
                             if ! self.triple_index.contains(delete_triple) {
-                                println!("\t Reinsert {:?}", Utils::decode_triple(&self.encoder, &delete_triple));
+                                println!("\t Reinsert {:?}", Utils::decode_triple( &delete_triple));
                                 self.triple_index.add(delete_triple.clone());
                                 delete_num -= 1;
                                 delete_status = true;
@@ -144,11 +143,11 @@ mod test{
             {?s a :Person.?s :teaches ?y.?y a :Course.}=>{?s a :TA.}";
         let mut dred = DRed::from(data);
         let inferred = dred.materialize();
-        inferred.iter().for_each(|t|println!("{:?}",Utils::decode_triple(&dred.encoder,t)));
+        inferred.iter().for_each(|t|println!("{:?}",Utils::decode_triple(t)));
         println!("{:?}", inferred);
         assert_eq!(9, dred.triple_index.len());
 
-        let remove_triple = Triple{s:VarOrTerm::new_term(":john".to_string(), &mut dred.encoder),p:VarOrTerm::new_term(":teaches".to_string(), &mut dred.encoder),o:VarOrTerm::new_term(":math".to_string(), &mut dred.encoder), g: None};
+        let remove_triple = Triple{s:VarOrTerm::new_term(":john".to_string()),p:VarOrTerm::new_term(":teaches".to_string()),o:VarOrTerm::new_term(":math".to_string()), g: None};
 
         dred.remove_ref(Rc::new(remove_triple));
         assert_eq!(8, dred.triple_index.len());

@@ -47,7 +47,7 @@ fn test_integration(){
             :k a :C9.";
     let mut reasoner = ImarsReasoner::new();
 
-    let (content, rules) = Parser::parse(data.to_string(),&mut reasoner.store.encoder);
+    let (content, rules) = Parser::parse(data.to_string());
     reasoner.store.add_rules(rules);
     let consumer = Rc::new(RefCell::new(reasoner));
     *consumer.borrow_mut().window.borrow_mut() = Rc::downgrade(&window);
@@ -85,7 +85,7 @@ fn test_transitive(){
     // assert_eq!(19, csprite.borrow_mut().window.len());
     let mut reasoner = ImarsReasoner::new();
 
-    let (content, rules) = Parser::parse(data.to_string(),&mut reasoner.store.encoder);
+    let (content, rules) = Parser::parse(data.to_string());
     reasoner.store.add_rules(rules);
     let consumer = Rc::new(RefCell::new(reasoner));
     *consumer.borrow_mut().window.borrow_mut() = Rc::downgrade(&window);

@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use crate::{Binding, Rule, RuleIndex, Triple, TripleIndex, VarOrTerm};
+use crate::{Binding, Rule, RuleIndex, Triple, TripleIndex, VarOrTerm, Encoder};
 
 pub struct BackwardChainer;
 
@@ -51,7 +51,7 @@ impl BackwardChainer {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use crate::{BackwardChainer, Syntax, Triple, TripleStore, VarOrTerm};
+    use crate::{BackwardChainer, Encoder, Syntax, Triple, TripleStore, VarOrTerm};
 
     #[test]
     fn test(){
@@ -78,9 +78,9 @@ mod tests {
         store.load_rules(rules);
 
         //backward head
-        let backward_head = Triple::from("?x".to_string(),"<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>".to_string(),"<http://www.some.com/EnvironmentObservation>".to_string(),&mut store.encoder);
-        let var_encoded= store.encoder.add("x".to_string());
-        let result_encoded = store.encoder.add("<http://www.some.com/obs>".to_string());
+        let backward_head = Triple::from("?x".to_string(),"<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>".to_string(),"<http://www.some.com/EnvironmentObservation>".to_string());
+        let var_encoded= Encoder::add("x".to_string());
+        let result_encoded = Encoder::add("<http://www.some.com/obs>".to_string());
 
         let  bindings = BackwardChainer::eval_backward(&store.triple_index, &store.rules_index, &backward_head);
         let result_bindings = HashMap::from([
@@ -99,10 +99,9 @@ mod tests {
             {?s a test:SubClass.}=>{?s a test:SubClass2.}\n
             {?s a test:SubClass2.?s test:hasRef ?b.?b test:hasRef ?c.?c a test:SubClass2.}=>{?s a test:SuperType.}";
         let mut store = TripleStore::from(data);
-        let encoder = &mut store.encoder;
-        let backward_head = Triple{s:VarOrTerm::new_var("?newVar".to_string(), encoder),p:VarOrTerm::new_term("a".to_string(), encoder),o:VarOrTerm::new_term("test:SuperType".to_string(), encoder), g: None};
-        let var_encoded= encoder.add("?newVar".to_string());
-        let result_encoded = encoder.add("<http://example2.com/a>".to_string());
+        let backward_head = Triple{s:VarOrTerm::new_var("?newVar".to_string()),p:VarOrTerm::new_term("a".to_string()),o:VarOrTerm::new_term("test:SuperType".to_string()), g: None};
+        let var_encoded= Encoder::add("?newVar".to_string());
+        let result_encoded = Encoder::add("<http://example2.com/a>".to_string());
 
         let  bindings = BackwardChainer::eval_backward(&store.triple_index, &store.rules_index, &backward_head);
         let result_bindings = HashMap::from([

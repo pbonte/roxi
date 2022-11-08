@@ -8,12 +8,12 @@ pub enum VarOrTerm {
     // BlankNode(BlankNode)
 }
 impl VarOrTerm {
-    pub fn new_term(iri: String, encoder: &mut Encoder) -> VarOrTerm {
-        let encoded = encoder.add(iri);
+    pub fn new_term(iri: String) -> VarOrTerm {
+        let encoded = Encoder::add(iri);
         VarOrTerm::Term(TermImpl { iri: encoded })
     }
-    pub fn new_var(name: String, encoder: &mut Encoder) -> VarOrTerm {
-        let encoded = encoder.add(name);
+    pub fn new_var(name: String) -> VarOrTerm {
+        let encoded = Encoder::add(name);
         VarOrTerm::Var(Variable { name: encoded })
     }
     pub fn new_encoded_term(iri: usize) -> VarOrTerm {
@@ -57,16 +57,16 @@ impl VarOrTerm {
         chars.next_back();
         chars.as_str()
     }
-    pub fn convert(var_or_term: String, encoder: &mut Encoder) -> VarOrTerm {
+    pub fn convert(var_or_term: String) -> VarOrTerm {
         if var_or_term.starts_with('?') {
             let var_name = &var_or_term[1..];
-            VarOrTerm::new_var(var_name.to_string(), encoder)
+            VarOrTerm::new_var(var_name.to_string())
         } else {
             let mut iri_prefix = var_or_term;
             if !iri_prefix.starts_with('<') {
                 iri_prefix = format!("<{}>", iri_prefix).to_string();
             }
-            VarOrTerm::new_term(iri_prefix, encoder)
+            VarOrTerm::new_term(iri_prefix)
         }
     }
 }
@@ -99,13 +99,12 @@ impl Triple {
     pub fn from(
         subject: String,
         property: String,
-        object: String,
-        encoder: &mut Encoder,
+        object: String
     ) -> Triple {
         Triple {
-            s: VarOrTerm::convert(subject, encoder),
-            p: VarOrTerm::convert(property, encoder),
-            o: VarOrTerm::convert(object, encoder),
+            s: VarOrTerm::convert(subject),
+            p: VarOrTerm::convert(property),
+            o: VarOrTerm::convert(object),
             g: None
         }
     }
@@ -114,10 +113,9 @@ impl Triple {
         property: String,
         object: String,
         graph_name:String,
-        encoder: &mut Encoder,
     ) -> Triple {
-        let mut triple = Self::from(subject, property, object, encoder);
-        triple.g = Some(VarOrTerm::convert(graph_name, encoder));
+        let mut triple = Self::from(subject, property, object);
+        triple.g = Some(VarOrTerm::convert(graph_name));
         triple
     }
 }

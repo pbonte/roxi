@@ -15,7 +15,6 @@ pub struct CSprite{
     pub rules: Vec<Rule>,
     pub rules_index: RuleIndex,
     pub triple_index : TripleIndex,
-    pub encoder: Encoder,
     window_reasoner: CSpriteReasoner,
     reasoner: Reasoner,
     imars: ImarsWindow<Triple>
@@ -23,20 +22,20 @@ pub struct CSprite{
 
 impl CSprite{
     pub fn new() -> CSprite{
-        CSprite{rules: Vec::new(), rules_index: RuleIndex::new(), triple_index: TripleIndex::new(), encoder: Encoder::new(), window_reasoner: CSpriteReasoner{ } , reasoner: Reasoner{} , imars: ImarsWindow::new_no_window()  }
+        CSprite{rules: Vec::new(), rules_index: RuleIndex::new(), triple_index: TripleIndex::new(), window_reasoner: CSpriteReasoner{ } , reasoner: Reasoner{} , imars: ImarsWindow::new_no_window()  }
 
     }
     pub fn from(data:&str) -> CSprite{
         let triple_store = TripleStore::from(&data);
-        CSprite{rules: triple_store.rules, rules_index: triple_store.rules_index , triple_index: triple_store.triple_index, encoder: triple_store.encoder, window_reasoner: CSpriteReasoner{ }, reasoner: Reasoner{},imars: ImarsWindow::new_no_window()  }
+        CSprite{rules: triple_store.rules, rules_index: triple_store.rules_index , triple_index: triple_store.triple_index, window_reasoner: CSpriteReasoner{ }, reasoner: Reasoner{},imars: ImarsWindow::new_no_window()  }
     }
     pub fn window_update(&mut self, new_data: Vec<(i32, Rc<Triple>)>, old_data: Vec<(i32, Rc<Triple>)>, last_ts:&i32){
-        println!("New data: {:?}",Self::decode_triples(&new_data,&self.encoder));
-        println!("Old data: {:?}",Self::decode_triples(&old_data,&self.encoder));
+        println!("New data: {:?}",Self::decode_triples(&new_data));
+        println!("Old data: {:?}",Self::decode_triples(&old_data));
 
         //remove expired data
         let old_items = self.imars.remove_old_elements(last_ts);
-        println!("Deleting expired: {:?}",Self::decode_triples(&old_items,&self.encoder));
+        println!("Deleting expired: {:?}",Self::decode_triples(&old_items));
 
         old_items.into_iter().for_each(|(_ts,item)|self.triple_index.remove_ref(&item));
 
@@ -46,18 +45,18 @@ impl CSprite{
             self.imars.add_without_update(triple.clone(),*ts);
             self.add_ref(triple.clone());
         });
-        let materialization = self.window_reasoner.materialize(&new_data,&mut self.triple_index,&self.rules_index,&mut self.imars,&self.encoder);
-        println!("inferred data: {:?}",Self::decode_triples(&materialization,&self.encoder));
+        let materialization = self.window_reasoner.materialize(&new_data,&mut self.triple_index,&self.rules_index,&mut self.imars);
+        println!("inferred data: {:?}",Self::decode_triples(&materialization));
 
         //add materialization to maintenance program
         //materialization.into_iter().for_each(|(ts,t)|self.imars.add_without_update(t,ts));
     }
-    fn decode_triples(triples: &Vec<(i32,Rc<Triple>)>, encoder: &Encoder) -> String {
+    fn decode_triples(triples: &Vec<(i32,Rc<Triple>)>) -> String {
         let mut res = String::new();
         for (ts,triple) in triples {
-            let decoded_s = encoder.decode(&triple.s.to_encoded()).unwrap();
-            let decoded_p = encoder.decode(&triple.p.to_encoded()).unwrap();
-            let decoded_o = encoder.decode(&triple.o.to_encoded()).unwrap();
+            let decoded_s = Encoder::decode(&triple.s.to_encoded()).unwrap();
+            let decoded_p = Encoder::decode(&triple.p.to_encoded()).unwrap();
+            let decoded_o = Encoder::decode(&triple.o.to_encoded()).unwrap();
 
             write!(&mut res, "{} {} {} @ {}.\n", decoded_s, decoded_p, decoded_o,ts).unwrap();
         }
@@ -83,9 +82,9 @@ impl CSprite{
         self.triple_index.len()
     }
     fn decode_triple(&self, triple:  &Triple) -> String {
-        let s = self.encoder.decode(&triple.s.to_encoded()).unwrap();
-        let p = self.encoder.decode(&triple.p.to_encoded()).unwrap();
-        let o = self.encoder.decode(&triple.o.to_encoded()).unwrap();
+        let s = Encoder::decode(&triple.s.to_encoded()).unwrap();
+        let p = Encoder::decode(&triple.p.to_encoded()).unwrap();
+        let o = Encoder::decode(&triple.o.to_encoded()).unwrap();
         format!("{} {} {}",s,p,o)
     }
     pub fn materialize_window(&mut self, window: Rc<RefCell<ImarsWindow<Triple>>>) -> Vec<(i32, Triple)>{
@@ -221,12 +220,11 @@ mod tests {
             {?super a test:SuperType.}=>{?super a test:SuperType3.}";
         let mut store = CSprite::from(data);
 
-        let encoder = &mut store.encoder;
-        let backward_head = Triple { s: VarOrTerm::new_var("?newVar".to_string(), encoder), p: VarOrTerm::new_term("a".to_string(), encoder), o: VarOrTerm::new_term("test:SuperType".to_string(), encoder), g:None };
+        let backward_head = Triple { s: VarOrTerm::new_var("?newVar".to_string()), p: VarOrTerm::new_term("a".to_string()), o: VarOrTerm::new_term("test:SuperType".to_string()), g:None };
 
 
         //assert_eq!(4,store.len());
-        let validation_triple = Triple { s: VarOrTerm::new_term("<http://example2.com/a>".to_string(), encoder), p: VarOrTerm::new_term("a".to_string(), encoder), o: VarOrTerm::new_term("test:SuperType".to_string(), encoder), g: None };
+        let validation_triple = Triple { s: VarOrTerm::new_term("<http://example2.com/a>".to_string()), p: VarOrTerm::new_term("a".to_string()), o: VarOrTerm::new_term("test:SuperType".to_string()), g: None };
 
         store.compute_sprite(&backward_head);
         store.materialize();
@@ -247,7 +245,7 @@ mod tests {
         }
         let mut store = CSprite::from(data.as_str());
 
-        let backward_head = Triple{s:VarOrTerm::new_var("?newVar".to_string(), &mut store.encoder),p:VarOrTerm::new_term("a".to_string(), &mut store.encoder),o:VarOrTerm::new_term(format!("test:SubClass{}", size), &mut store.encoder), g: None};
+        let backward_head = Triple{s:VarOrTerm::new_var("?newVar".to_string()),p:VarOrTerm::new_term("a".to_string()),o:VarOrTerm::new_term(format!("test:SubClass{}", size)), g: None};
 
         let load_time = timer_load.elapsed();
         println!("Load Time: {:.2?}", load_time);
@@ -266,12 +264,11 @@ mod tests {
 
     #[test]
     fn test_rewrite_hierarchy_csprite(){
-        let mut encoder = Encoder::new();
         let data="<http://example2.com/a> a test:SubClass.\n\
             {?s a test:SubClassH1.}=>{?s a test:SubClassH.}\n\
             {?s a test:SubClassH2.}=>{?s a test:SubClassH1.}\n\
             {?s a test:SubClassH3.}=>{?s a test:SubClassH2.}";
-        let ( _content, rules) = Parser::parse(data.to_string(),&mut encoder);
+        let ( _content, rules) = Parser::parse(data.to_string());
         println!("{:?}",rules);
 
         let rc_rules = rules.into_iter().map(|x|Rc::new(x)).collect();

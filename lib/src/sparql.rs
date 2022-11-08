@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fmt::Error;
 use std::iter::empty;
 use std::rc::Rc;
+use std::sync::Mutex;
 use oxigraph::sparql::Variable;
 use spargebra::Query;
 use spargebra::Query::Select;
@@ -13,6 +14,8 @@ use crate::{Encoder, Parser, Syntax, TermImpl, Triple, TripleIndex, TripleStore,
 use crate::sparql::EncodedTerm::NamedNode;
 use crate::sparql::PlanNode::QuadPattern;
 use crate::tripleindex::EncodedBinding;
+use once_cell::sync::Lazy;
+
 
 
 fn extract_triples(triple_patterns: &Vec<TriplePattern>, encoder: &mut Encoder)-> Vec<Triple>{
@@ -22,7 +25,7 @@ fn extract_triples(triple_patterns: &Vec<TriplePattern>, encoder: &mut Encoder)-
         println!("subject: {:?}", s.to_string());
         println!("predicate: {:?}", p.to_string());
         println!("object: {:?}", o.to_string());
-        triples.push(Triple::from(s.to_string(),p.to_string(),o.to_string(), encoder));
+        triples.push(Triple::from(s.to_string(),p.to_string(),o.to_string()));
     }
     triples
 }
@@ -78,17 +81,19 @@ pub enum PlanAggregationFunction {
 fn new_join(left: PlanNode, right: PlanNode) -> PlanNode{
     PlanNode::Join {left:Box::new(left),right: Box::new(right)}
 }
-fn extract_query_plan(graph_pattern: &GraphPattern, encoder: &mut Encoder) -> PlanNode {
+fn extract_query_plan(graph_pattern: &GraphPattern) -> PlanNode {
     match graph_pattern {
-        GraphPattern::Bgp {patterns}=> patterns.iter().map(|t| QuadPattern {pattern:Triple::from(t.subject.to_string(),t.predicate.to_string(),t.object.to_string(), encoder)}).
-            reduce(new_join).unwrap(),
+        GraphPattern::Bgp {patterns}=> {
+            patterns.iter().map(|t| QuadPattern {pattern:Triple::from(t.subject.to_string(),t.predicate.to_string(),t.object.to_string())}).
+            reduce(new_join).unwrap()},
         GraphPattern::Project {inner,variables}=>{
-            PlanNode::Project {child: Box::new(extract_query_plan(inner,encoder)), mapping: variables.iter().map(|v|encoder.add(v.as_str().to_string())).collect()}
+            let new_vars = variables.iter().map(|v|Encoder::add(v.as_str().to_string())).collect();
+            PlanNode::Project {child: Box::new(extract_query_plan(inner)), mapping: new_vars}
         },
         GraphPattern::Filter {expr, inner} =>{
             println!("Expression: {:?}",expr);
             println!("inner: {:?}",inner);
-            PlanNode::Filter{child: Box::new(extract_query_plan(inner, encoder)), expression: Box::new(extract_expression(expr, encoder))}
+            PlanNode::Filter{child: Box::new(extract_query_plan(inner)), expression: Box::new(extract_expression(expr))}
         },
         GraphPattern::Group {
             inner,
@@ -100,10 +105,7 @@ fn extract_query_plan(graph_pattern: &GraphPattern, encoder: &mut Encoder) -> Pl
             println!("  vars {:?}", by);
 
             PlanNode::Aggregate {
-                child: Box::new(extract_query_plan(
-                    inner,
-                    encoder,
-                )),
+                child: Box::new(extract_query_plan(inner)),
                 keys: inner_variables.clone(),
                 aggregates: Rc::new(
                     aggregates
@@ -120,10 +122,9 @@ fn extract_query_plan(graph_pattern: &GraphPattern, encoder: &mut Encoder) -> Pl
         },
         GraphPattern::Extend {inner, expression,variable } => {
             if let Expression::Variable(var_exp) = expression{
-                encoder.add(var_exp.clone().into_string());
-
-                encoder.add(variable.clone().into_string());
-                PlanNode::Extend{child:Box::new(extract_query_plan(inner,encoder)) , from: var_exp.clone(), to: variable.clone()}
+                Encoder::add(var_exp.clone().into_string());
+                Encoder::add(variable.clone().into_string());
+                PlanNode::Extend{child:Box::new(extract_query_plan(inner)) , from: var_exp.clone(), to: variable.clone()}
             }else{
                 PlanNode::Done
             }
@@ -145,21 +146,22 @@ fn build_for_aggregate(
     }
 }
 
-fn extract_expression(expression: &Expression,encoder: &mut Encoder) -> PlanExpression {
+fn extract_expression(expression: &Expression) -> PlanExpression {
     match expression {
         Expression::Greater(a,b)=>{
-            PlanExpression::Greater(Box::new(extract_expression(a, encoder)),Box::new(extract_expression(b, encoder)))
+            PlanExpression::Greater(Box::new(extract_expression(a)),Box::new(extract_expression(b)))
         },
         Expression::GreaterOrEqual(a,b)=>{
-            PlanExpression::GreaterOrEqual(Box::new(extract_expression(a, encoder)),Box::new(extract_expression(b, encoder)))
+            PlanExpression::GreaterOrEqual(Box::new(extract_expression(a)),Box::new(extract_expression(b)))
         },
         Expression::Less(a,b)=>{
-            PlanExpression::Less(Box::new(extract_expression(a, encoder)),Box::new(extract_expression(b, encoder)))
+            PlanExpression::Less(Box::new(extract_expression(a)),Box::new(extract_expression(b)))
         },
         Expression::LessOrEqual(a,b)=>{
-            PlanExpression::LessOrEqual(Box::new(extract_expression(a, encoder)),Box::new(extract_expression(b, encoder)))
+            PlanExpression::LessOrEqual(Box::new(extract_expression(a)),Box::new(extract_expression(b)))
         },
-        Expression::Variable(var)=>PlanExpression::Variable(encoder.add(var.as_str().to_string())),
+        Expression::Variable(var)=>{
+            PlanExpression::Variable(Encoder::add(var.as_str().to_string()))},
         Expression::Literal(value)=>PlanExpression::Constant(TermImpl{iri:value.value().parse::<usize>().unwrap()}),
         _=> PlanExpression::Done
 
@@ -171,21 +173,21 @@ pub struct Binding{
     pub val: String
 }
 
-fn decode(input: &EncodedBinding, encoder: &Encoder) -> Binding{
-    Binding{var: encoder.decode(&input.var).unwrap_or(&"".to_string()).clone(),
-        val: encoder.decode(&input.val).unwrap_or(&"".to_string()).clone()}
+fn decode(input: &EncodedBinding) -> Binding{
+    Binding{var: Encoder::decode(&input.var).unwrap_or("".to_string()),
+        val: Encoder::decode(&input.val).unwrap_or("".to_string())}
 }
-pub fn evaluate_plan_and_debug<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex, encoder: &'a  Encoder) -> Box<dyn Iterator<Item=Vec<Binding>> + 'a> {
-    Box::new(evaluate_plan(plan_node,triple_index,encoder).map(|v|v.into_iter().map(|b|decode(&b,encoder)).collect::<Vec<Binding>>()))
+pub fn evaluate_plan_and_debug<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex) -> Box<dyn Iterator<Item=Vec<Binding>> + 'a> {
+    Box::new(evaluate_plan(plan_node,triple_index).map(|v|v.into_iter().map(|b|decode(&b)).collect::<Vec<Binding>>()))
 }
-pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex, encoder: &'a  Encoder) -> Box<dyn Iterator<Item=Vec<EncodedBinding>> + 'a> {
+pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex) -> Box<dyn Iterator<Item=Vec<EncodedBinding>> + 'a> {
     match plan_node{
         PlanNode::QuadPattern {pattern: triple}=>{
 
             triple_index.query_help(&triple,None)
         },
         PlanNode::Project {child,mapping}=>{
-            let child_it = evaluate_plan(child, triple_index,encoder);
+            let child_it = evaluate_plan(child, triple_index);
 
             Box::new(child_it.map(|binding|{
                 let projection : Vec<EncodedBinding>= binding.into_iter().filter(|b|mapping.contains(&b.var)).collect();
@@ -193,8 +195,8 @@ pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex,
             }))
         },
         PlanNode::Join {left, right}=> {
-            let left = evaluate_plan(left,triple_index, encoder);
-            let right = evaluate_plan(right,triple_index, encoder);
+            let left = evaluate_plan(left,triple_index);
+            let right = evaluate_plan(right,triple_index);
             let mut left = left.peekable();
             let mut right = right.peekable();
             let left_peek = left.peek();
@@ -235,8 +237,8 @@ pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex,
             }
             Box::new(empty())},
         PlanNode::Filter {child, expression}=>{
-            let child = evaluate_plan(child,triple_index, encoder);
-            let expression = eval_expression(expression, encoder);
+            let child = evaluate_plan(child,triple_index);
+            let expression = eval_expression(expression);
             Box::new(child.filter(move|bindings|{
                 if let Some(EncodedTerm::BooleanLiteral(true)) = expression(bindings){
                     true
@@ -246,25 +248,27 @@ pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex,
             }))
             },
         PlanNode::Aggregate {child,keys,aggregates}=>{
-            let child = evaluate_plan(child,triple_index, encoder);
+            let child = evaluate_plan(child,triple_index);
             println!("keeys: {:?}", keys);
                 let (aggregate_function, aggregate_var) = aggregates.iter().next().unwrap();
             //TODO match aggregate function
             println!("aggregate var: {:?}", aggregate_var.clone().into_string());
-            let aggregate_encoded = encoder.get(aggregate_var.as_str()).unwrap();
+            let aggregate_encoded = Encoder::get(aggregate_var.as_str()).unwrap();
             println!("encoded aggregate var: {:?}", aggregate_encoded);
 
             let mut grouped_accumulators =
                     Rc::new(RefCell::new(HashMap::<Vec<usize>, CountAccumulator>::default()));
             let  local_group = grouped_accumulators.clone();
                 child.for_each(move |child_binding| {
-                    let key_values : Vec<usize> = keys.iter().map(|v| encoder.get(v.as_str()).unwrap()).collect();
+                    println!("input bindings {:?}", child_binding);
+
+                    let key_values : Vec<usize> = keys.iter().map(|v| Encoder::get(v.as_str()).unwrap()).collect();
                     println!("encoded keys {:?}", key_values);
                     let mut converted_keys = Vec::with_capacity(key_values.len());
                     for key_val in key_values{
                         for binding in child_binding.clone(){
                             if key_val == binding.var {
-                                println!("encoded var {:?} decoded: {:?}", binding.val, encoder.decode(&binding.val));
+                                println!("encoded var {:?} decoded: {:?}", binding.val, Encoder::decode(&binding.val));
                                 converted_keys.push(binding.val)
                             }
                         }
@@ -284,11 +288,11 @@ pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex,
             {
                 let mut temp_acc = local_group.borrow_mut();
                 let mut new_bindings = Vec::with_capacity(temp_acc.len());
-                let key_values : Vec<usize> = keys.iter().map(|v| encoder.get(v.as_str()).unwrap()).collect();
+                let key_values : Vec<usize> = keys.iter().map(|v| Encoder::get(v.as_str()).unwrap()).collect();
 
                 for (group_keys, group_value) in temp_acc.iter(){
                     let mut new_row = Vec::with_capacity(key_values.len()+1);
-                    let binding = EncodedBinding{var: aggregate_encoded, val: group_value.get() };
+                    let binding = EncodedBinding{var: aggregate_encoded, val: Encoder::add(group_value.get().to_string()) };
                     new_row.push(binding);
                     for (i,key_val) in key_values.clone().into_iter().enumerate(){
                         let binding = EncodedBinding{var: key_val, val: group_keys.get(i).unwrap().clone() };
@@ -305,9 +309,9 @@ pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex,
 
         },
         PlanNode::Extend {child, from, to}=>{
-            let child_it = evaluate_plan(child, triple_index,encoder);
-            let encoded_from = encoder.get(from.as_str()).unwrap();
-            let encoded_to = encoder.get(to.as_str()).unwrap();
+            let child_it = evaluate_plan(child, triple_index);
+            let encoded_from = Encoder::get(from.as_str()).unwrap();
+            let encoded_to = Encoder::get(to.as_str()).unwrap();
             Box::new(child_it.map(move |binding|{
                 let projection : Vec<EncodedBinding>= binding.into_iter().map(|b|{
                     if b.var == encoded_from{
@@ -339,24 +343,24 @@ impl Default for CountAccumulator{
         CountAccumulator{count: 0}
     }
 }
-fn eval_expression<'a>(expression: &'a PlanExpression, encoder: &'a Encoder) ->  Box<dyn Fn(&Vec<EncodedBinding>) -> Option<EncodedTerm> + 'a>{
+fn eval_expression<'a>(expression: &'a PlanExpression) ->  Box<dyn Fn(&Vec<EncodedBinding>) -> Option<EncodedTerm> + 'a>{
     match expression{
         PlanExpression::Greater(a,b)=>{
-            partial_compare_helper(encoder, a, b, Ordering::Greater, None)
+            partial_compare_helper(a, b, Ordering::Greater, None)
         },
         PlanExpression::Less(a,b)=>{
-            partial_compare_helper(encoder, a, b, Ordering::Less, None)
+            partial_compare_helper( a, b, Ordering::Less, None)
         },
         PlanExpression::GreaterOrEqual(a,b)=>{
-            partial_compare_helper(encoder, a, b, Ordering::Greater, Some(Ordering::Equal))
+            partial_compare_helper( a, b, Ordering::Greater, Some(Ordering::Equal))
         },
         PlanExpression::LessOrEqual(a,b)=>{
-            partial_compare_helper(encoder, a, b, Ordering::Less, Some(Ordering::Equal))
+            partial_compare_helper( a, b, Ordering::Less, Some(Ordering::Equal))
         },
         PlanExpression::Variable(v)=> Box::new(move |bindings|{
             let var_value : Vec<&EncodedBinding> = bindings.iter().filter(|b|b.var==*v).collect();
             var_value.get(0).iter().map(|v|{
-                if let  Some(decoded) = encoder.decode(&v.val){
+                if let  Some(decoded) = Encoder::decode(&v.val){
                     let split: Vec<&str> = decoded.split("^^").collect();
                     if let Some(iri) = split.get(1){
                         let value = split.get(0).unwrap();
@@ -380,9 +384,9 @@ fn eval_expression<'a>(expression: &'a PlanExpression, encoder: &'a Encoder) -> 
 
 }
 
-fn partial_compare_helper<'a>(encoder: &'a Encoder, a: &'a Box<PlanExpression>, b: &'a Box<PlanExpression>, ordering: Ordering, second_order: Option<Ordering>) -> Box<dyn Fn(&Vec<EncodedBinding>) -> Option<EncodedTerm> +'a> {
-    let a = eval_expression(a, encoder);
-    let b = eval_expression(b, encoder);
+fn partial_compare_helper<'a>( a: &'a Box<PlanExpression>, b: &'a Box<PlanExpression>, ordering: Ordering, second_order: Option<Ordering>) -> Box<dyn Fn(&Vec<EncodedBinding>) -> Option<EncodedTerm> +'a> {
+    let a = eval_expression(a);
+    let b = eval_expression(b);
 
     Box::new(move |bindings| {
         let b_res = b(bindings);
@@ -454,13 +458,13 @@ impl Iterator for QueryResults{
         self.iterator.next()
     }
 }
-pub fn eval_query<'a>(query: &'a Query, index: &'a TripleIndex, encoder: &'a mut Encoder) -> PlanNode {
+pub fn eval_query<'a>(query: &'a Query, index: &'a TripleIndex) -> PlanNode {
     match query {
         spargebra::Query::Select {
             pattern, base_iri, ..
         } => {
             println!("Select query");
-            let plan = extract_query_plan(&pattern,encoder);
+            let plan = extract_query_plan(&pattern);
 
             plan
         }
@@ -488,57 +492,69 @@ pub fn eval_query<'a>(query: &'a Query, index: &'a TripleIndex, encoder: &'a mut
 #[cfg(test)]
 mod tests{
     use super::*;
-    fn prepare_test() -> (TripleIndex, Encoder) {
+    fn prepare_test() -> TripleIndex{
         //load triples
         let nquads = "<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> <http://example.com/> .
     <http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Student> <http://example.com/somethingelse> .
     <http://example.com/foo> <http://test/hasVal> \"1\"^^<http://www.w3.org/2001/XMLSchema#integer> <http://example.com/somethingelse> .
     <http://example.com/foo2> <http://test/hasVal> \"10\"^^<http://www.w3.org/2001/XMLSchema#integer> <http://example.com/somethingelse> .";
 
-        let mut encoder = Encoder::new();
-        let triples = Parser::parse_triples(nquads, &mut encoder, Syntax::NQuads).unwrap();
+        let triples = Parser::parse_triples(nquads,  Syntax::NQuads).unwrap();
         let mut index = TripleIndex::new();
         triples.into_iter().for_each(|t| index.add(t));
-        (index, encoder)
+        index
     }
     #[test]
     fn test_filter_greater_than() {
-        let (index, mut encoder) = prepare_test();
+        let index = prepare_test();
         let query_str = "Select * WHERE {  ?s <http://test/hasVal> ?o2  . Filter(?o2 > 1). }";
         let query = Query::parse(query_str, None).unwrap();
-        let plan = eval_query(&query, &index, &mut encoder);
-        let iterator = evaluate_plan(&plan, &index, & encoder);
+        let plan = eval_query(&query, &index);
+        let iterator = evaluate_plan(&plan, &index);
         assert_eq!(1, iterator.collect::<Vec<Vec<EncodedBinding>>>().len());
     }
     #[test]
     fn test_filter_greater_than_or_equal() {
-        let (index, mut encoder) = prepare_test();
+        let index = prepare_test();
         let query_str = "Select * WHERE {  ?s <http://test/hasVal> ?o2  . Filter(?o2 >= 1). }";
         let query = Query::parse(query_str, None).unwrap();
-        let plan = eval_query(&query, &index, &mut encoder);
-        let iterator = evaluate_plan(&plan, &index, & encoder);
+        let plan = eval_query(&query, &index);
+        let iterator = evaluate_plan(&plan, &index);
         assert_eq!(2, iterator.collect::<Vec<Vec<EncodedBinding>>>().len());
     }
     #[test]
     fn test_filter_less_than() {
-        let (index, mut encoder) = prepare_test();
+        let index = prepare_test();
         let query_str = "Select * WHERE {  ?s <http://test/hasVal> ?o2  . Filter(?o2 <= 1). }";
         let query = Query::parse(query_str, None).unwrap();
-        let plan = eval_query(&query, &index, &mut encoder);
-        let iterator = evaluate_plan(&plan, &index, & encoder);
+        let plan = eval_query(&query, &index);
+        let iterator = evaluate_plan(&plan, &index);
         assert_eq!(1, iterator.collect::<Vec<Vec<EncodedBinding>>>().len());
     }
     #[test]
     fn test_group_by_count_aggregation() {
-        let (index, mut encoder) = prepare_test();
-        let query_str = "Select (COUNT(?s) AS ?count) ?o2 WHERE {  ?s <http://test/hasVal> ?o2  .  } GroupBy ?s ?o2";
+        let index = prepare_test();
+        let query_str = "Select (COUNT(?s) AS ?count) WHERE {  ?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?o  .  } GroupBy ?s ";
         let query = Query::parse(query_str, None).unwrap();
         println!("{:?}", query);
-        let plan = eval_query(&query, &index, &mut encoder);
-        let iterator = evaluate_plan_and_debug(&plan, &index, & encoder);
-        for r in iterator{
-            println!("result: {:?}", r);
-        }
-        //assert_eq!(1, iterator.collect::<Vec<Vec<EncodedBinding>>>().len());
+        let plan = eval_query(&query, &index);
+        let iterator = evaluate_plan_and_debug(&plan, &index);
+        let results = vec![vec![Binding { var: "count".to_string(), val: "2".to_string() }]];
+
+        assert_eq!(results, iterator.collect::<Vec<Vec<Binding>>>());
+    }
+    #[test]
+    fn test_group_by_count_aggregation_multiple_group() {
+        let index = prepare_test();
+        let query_str = "Select (COUNT(?s) AS ?count) ?s ?o2 WHERE {  ?s ?p ?o2  .  } GroupBy ?s ?o2";
+        let query = Query::parse(query_str, None).unwrap();
+        println!("{:?}", query);
+        let plan = eval_query(&query, &index);
+        let mut iterator = evaluate_plan_and_debug(&plan, &index);
+
+        assert_eq!(3, iterator.next().unwrap().len());
+        assert_eq!(3, iterator.collect::<Vec<Vec<Binding>>>().len());
+
+
     }
 }

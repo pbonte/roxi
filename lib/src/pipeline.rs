@@ -76,7 +76,7 @@ fn test_transitive(){
 
     let mut reasoner = WindowReasoner::new();
 
-    let (content, rules) = Parser::parse(data.to_string(),&mut reasoner.store.encoder);
+    let (content, rules) = Parser::parse(data.to_string());
     reasoner.store.add_rules(rules);
     let consumer = Rc::new(RefCell::new(reasoner));
     window.register_consumer(consumer.clone());
@@ -104,9 +104,8 @@ fn test_compute_diff(){
 
     let mut reasoner = WindowReasoner::new();
 
-    let (content, rules) = Parser::parse(data.to_string(),&mut reasoner.store.encoder);
+    let (content, rules) = Parser::parse(data.to_string());
     reasoner.store.add_rules(rules);
-    println!("Encoding: {:?}", reasoner.store.encoder);
     let consumer = Rc::new(RefCell::new(reasoner));
     window.register_consumer(consumer.clone());
 

@@ -48,7 +48,7 @@ fn parse_term(tp_term: Pair<Rule>) {
     }
 }
 
-fn parse_tp(pair: Pairs<'_, Rule>, prefixes : &PrefixMapper, encoder: &mut Encoder) -> Triple{
+fn parse_tp(pair: Pairs<'_, Rule>, prefixes : &PrefixMapper) -> Triple{
     let mut subject_str="".to_string();
     let mut property_str = "".to_string();
     let mut object_str = "".to_string();
@@ -61,10 +61,10 @@ fn parse_tp(pair: Pairs<'_, Rule>, prefixes : &PrefixMapper, encoder: &mut Encod
             _ => (),
         }
     }
-    Triple::from(subject_str,property_str,object_str, encoder)
+    Triple::from(subject_str,property_str,object_str)
 }
 
-pub fn parse(parse_string: &str, encoder: &mut Encoder) -> Result<Vec<ReasonerRule>,&'static str>{
+pub fn parse(parse_string: &str) -> Result<Vec<ReasonerRule>,&'static str>{
     let mut rules = Vec::new();
     let mut prefix_mapper = PrefixMapper::new();
     let mut unparsed = CSVParser::parse(Rule::document, parse_string).expect("Unable to read")
@@ -92,18 +92,18 @@ pub fn parse(parse_string: &str, encoder: &mut Encoder) -> Result<Vec<ReasonerRu
                     Rule::rule => {
                         let mut sub_rules = line.into_inner();
                         //todo fix unneeded triple allocation
-                        let mut head: Triple = Triple::from("?s".to_string(), "?p".to_string(), "?o".to_string(), encoder);
+                        let mut head: Triple = Triple::from("?s".to_string(), "?p".to_string(), "?o".to_string());
                         let mut body: Vec<Triple> = Vec::new();
                         for sub_rule in sub_rules {
                             match sub_rule.as_rule() {
                                 Rule::Body => {
                                     let mut rules = sub_rule.into_inner();
                                     for rule in rules {
-                                        body.push(parse_tp(rule.into_inner(), &prefix_mapper, encoder));
+                                        body.push(parse_tp(rule.into_inner(), &prefix_mapper));
                                     }
                                 },
                                 Rule::Head => {
-                                    head = parse_tp(sub_rule.into_inner().next().unwrap().into_inner(), &prefix_mapper, encoder);
+                                    head = parse_tp(sub_rule.into_inner().next().unwrap().into_inner(), &prefix_mapper);
                                 },
 
                                 Rule::EOI => (),
@@ -129,41 +129,33 @@ mod tests {
     use super::*;
     #[test]
     fn parse_tp() {
-        let mut encoder = Encoder::new();
-        let rules = parse("@prefix log: <http://www.w3.org/2000/10/swap/log#>.\n{?VaRr0 <http://test.be/pieter> ?lastVar. ?VaRr0 log:type ?lastVar.}=>{?VaRr0 ssn:HasValue ?lastVar.}", &mut encoder).unwrap();
+        let rules = parse("@prefix log: <http://www.w3.org/2000/10/swap/log#>.\n{?VaRr0 <http://test.be/pieter> ?lastVar. ?VaRr0 log:type ?lastVar.}=>{?VaRr0 ssn:HasValue ?lastVar.}").unwrap();
         println!("{:?}",rules);
         assert_eq!(rules.get(0).unwrap().body.len(), 2);
     }
     #[test]
     fn parse_multiple_prefixes() {
-        let mut encoder = Encoder::new();
 
-        let rules = parse("@prefix log: <http://www.w3.org/2000/10/swap/log#>.\n @prefix log2: <http://www.w3.org/2000/10/swap/log2#>.\n {?VaRr0 <http://test.be/pieter> ?lastVar. ?VaRr0 log:type ?lastVar.}=>{?VaRr0 ssn:HasValue ?lastVar.}", &mut encoder).unwrap();
+        let rules = parse("@prefix log: <http://www.w3.org/2000/10/swap/log#>.\n @prefix log2: <http://www.w3.org/2000/10/swap/log2#>.\n {?VaRr0 <http://test.be/pieter> ?lastVar. ?VaRr0 log:type ?lastVar.}=>{?VaRr0 ssn:HasValue ?lastVar.}").unwrap();
         println!("{:?}",rules);
         assert_eq!(rules.get(0).unwrap().body.len(), 2);
     }
     #[test]
     fn parse_multiple_rules() {
-        let mut encoder = Encoder::new();
-
-        let rules = parse("@prefix log: <http://www.w3.org/2000/10/swap/log#>.\n @prefix log2: <http://www.w3.org/2000/10/swap/log2#>.\n {?VaRr0 <http://test.be/pieter> ?lastVar. ?VaRr0 log:type ?lastVar.}=>{?VaRr0 ssn:HasValue ?lastVar.}\n{?s <http://test.be/pieter> ?o.}=>{?s ssn:HasValue ?o.}",&mut encoder).unwrap();
+        let rules = parse("@prefix log: <http://www.w3.org/2000/10/swap/log#>.\n @prefix log2: <http://www.w3.org/2000/10/swap/log2#>.\n {?VaRr0 <http://test.be/pieter> ?lastVar. ?VaRr0 log:type ?lastVar.}=>{?VaRr0 ssn:HasValue ?lastVar.}\n{?s <http://test.be/pieter> ?o.}=>{?s ssn:HasValue ?o.}").unwrap();
         println!("{:?}",rules);
         assert_eq!(rules.len(), 2);
     }
     #[test]
     fn parse_multiple_rulese_ending_with_dot() {
-        let mut encoder = Encoder::new();
-
-        let rules = parse("@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n@prefix : <http://eulersharp.sourceforge.net/2009/12dtb/test#>.\n{?V0 rdf:type :N0} => {?V0 rdf:type :N1}.\n{?V0 rdf:type :N1} => {?V0 rdf:type :N2}.", &mut encoder).unwrap();
+        let rules = parse("@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n@prefix : <http://eulersharp.sourceforge.net/2009/12dtb/test#>.\n{?V0 rdf:type :N0} => {?V0 rdf:type :N1}.\n{?V0 rdf:type :N1} => {?V0 rdf:type :N2}.").unwrap();
         println!("{:?}",rules);
         assert_eq!(rules.len(), 2);
 
     }
     #[test]
     fn parse_empty_rule() {
-        let mut encoder = Encoder::new();
-
-        let rules = parse("", &mut encoder).unwrap();
+        let rules = parse("").unwrap();
         println!("{:?}",rules);
         assert_eq!(0,rules.len());
 
