@@ -276,7 +276,7 @@ pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex)
                     {
                         let mut temp_acc = grouped_accumulators.borrow_mut();
                         let t = temp_acc.entry(converted_keys).or_insert_with(|| CountAccumulator::default());
-                        t.add(child_binding);
+                        t.add(0);
                     }
                     println!("Groups {:?}", grouped_accumulators);
 
@@ -292,7 +292,7 @@ pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex)
 
                 for (group_keys, group_value) in temp_acc.iter(){
                     let mut new_row = Vec::with_capacity(key_values.len()+1);
-                    let binding = EncodedBinding{var: aggregate_encoded, val: Encoder::add(group_value.get().to_string()) };
+                    let binding = EncodedBinding{var: aggregate_encoded, val: group_value.get() };
                     new_row.push(binding);
                     for (i,key_val) in key_values.clone().into_iter().enumerate(){
                         let binding = EncodedBinding{var: key_val, val: group_keys.get(i).unwrap().clone() };
@@ -326,16 +326,20 @@ pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex)
         PlanNode::Done => Box::new(empty())
     }
 }
+trait Accumulator{
+    fn add(&mut self, encoded_item: usize);
+    fn get(&self) -> usize;
+}
 #[derive(Debug)]
 pub struct CountAccumulator{
     count: usize
 }
-impl CountAccumulator{
-    fn add(&mut self, _item: Vec<EncodedBinding>){
+impl Accumulator for CountAccumulator{
+    fn add(&mut self, _item: usize){
         self.count+=1;
     }
     fn get(&self) -> usize{
-        self.count
+        Encoder::add(self.count.to_string())
     }
 }
 impl Default for CountAccumulator{
@@ -546,7 +550,7 @@ mod tests{
     #[test]
     fn test_group_by_count_aggregation_multiple_group() {
         let index = prepare_test();
-        let query_str = "Select (COUNT(?s) AS ?count) ?s ?o2 WHERE {  ?s ?p ?o2  .  } GroupBy ?s ?o2";
+        let query_str = "Select (SUM(?val) AS ?count) ?s WHERE {  ?s <http://test/hasVal> ?val  .  } GroupBy ?s";
         let query = Query::parse(query_str, None).unwrap();
         println!("{:?}", query);
         let plan = eval_query(&query, &index);
@@ -554,7 +558,17 @@ mod tests{
 
         assert_eq!(3, iterator.next().unwrap().len());
         assert_eq!(3, iterator.collect::<Vec<Vec<Binding>>>().len());
+    }
+    #[test]
+    fn test_group_by_sum_aggregation() {
+        let index = prepare_test();
+        let query_str = "Select (SUM(?val) AS ?sum) ?s WHERE {  ?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?val.  } GroupBy ?s ";
+        let query = Query::parse(query_str, None).unwrap();
+        println!("{:?}", query);
+        let plan = eval_query(&query, &index);
+        let iterator = evaluate_plan_and_debug(&plan, &index);
+        let results = vec![vec![Binding { var: "count".to_string(), val: "2".to_string() }]];
 
-
+        assert_eq!(results, iterator.collect::<Vec<Vec<Binding>>>());
     }
 }

@@ -64,6 +64,12 @@
 /******/ 					"__wbindgen_object_clone_ref": function(p0i32) {
 /******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbindgen_object_clone_ref"](p0i32);
 /******/ 					},
+/******/ 					"__wbg_randomFillSync_2f6909f8132a175d": function(p0i32,p1i32,p2i32) {
+/******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_randomFillSync_2f6909f8132a175d"](p0i32,p1i32,p2i32);
+/******/ 					},
+/******/ 					"__wbg_getRandomValues_11a236fbf9914290": function(p0i32,p1i32) {
+/******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_getRandomValues_11a236fbf9914290"](p0i32,p1i32);
+/******/ 					},
 /******/ 					"__wbg_process_5615a087a47ba544": function(p0i32) {
 /******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_process_5615a087a47ba544"](p0i32);
 /******/ 					},
@@ -90,12 +96,6 @@
 /******/ 					},
 /******/ 					"__wbg_msCrypto_1088c21440b2d7e4": function(p0i32) {
 /******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_msCrypto_1088c21440b2d7e4"](p0i32);
-/******/ 					},
-/******/ 					"__wbg_getRandomValues_11a236fbf9914290": function(p0i32,p1i32) {
-/******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_getRandomValues_11a236fbf9914290"](p0i32,p1i32);
-/******/ 					},
-/******/ 					"__wbg_randomFillSync_2f6909f8132a175d": function(p0i32,p1i32,p2i32) {
-/******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_randomFillSync_2f6909f8132a175d"](p0i32,p1i32,p2i32);
 /******/ 					},
 /******/ 					"__wbg_new_1d9a920c6bfc44a8": function() {
 /******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_new_1d9a920c6bfc44a8"]();
@@ -252,7 +252,7 @@
 /******/ 				promises.push(installedWasmModuleData);
 /******/ 			else {
 /******/ 				var importObject = wasmImportObjects[wasmModuleId]();
-/******/ 				var req = fetch(__webpack_require__.p + "" + {"../pkg/roxi_js_bg.wasm":"dd54eb58002ccc760544"}[wasmModuleId] + ".module.wasm");
+/******/ 				var req = fetch(__webpack_require__.p + "" + {"../pkg/roxi_js_bg.wasm":"27165cf271ab18793319"}[wasmModuleId] + ".module.wasm");
 /******/ 				var promise;
 /******/ 				if(importObject instanceof Promise && typeof WebAssembly.compileStreaming === 'function') {
 /******/ 					promise = Promise.all([WebAssembly.compileStreaming(req), importObject]).then(function(items) {
