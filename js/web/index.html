@@ -4,10 +4,22 @@
   <meta charset="utf-8">
   <title>RoXi Reasoner</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+  <link href="https://unpkg.com/@triply/yasgui/build/yasgui.min.css" rel="stylesheet" type="text/css" />
+
+  <style>
+    .yasqe .yasqe_buttons {
+      display: none ;
+    }
+    .yasqe .yasqe_tooltip {
+      background: #fff;
+      color: #000;
+    }
+  </style>
+
 </head>
 <body>
 <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
-<script src="./bootstrap.js"></script>
+<script defer src="./bootstrap.js"></script>
 
 <section class="hero is-small is-info">
   <div class="hero-body">
@@ -23,35 +35,41 @@
   <ul>
     <li class="tab is-active" onclick="openTab(event,'reasoning')"><a>Reasoning</a></li>
     <li class="tab" onclick="openTab(event,'rsp')"><a>RDF Stream Processing</a></li>
+    <li class="tab" onclick="openTab(event,'rq')"><a>Reasoning and Querying</a></li>
   </ul>
 </div>
 <div class="container">
   <div id="reasoning" class="content-tab" >
     <div class="notification is-light">
       <label class="label">ABox:</label>
-      <textarea class="textarea is-link" placeholder="Define Abox" id="aboxContent"></textarea>
+      <textarea class="textarea is-link" placeholder="Define Abox" id="aboxContentR"></textarea>
       <label class="label">Rules:</label>
-      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContent"></textarea>
+      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContentR"></textarea>
       <div class="control">
-        <button class="button is-info" id="startReasoning">Materialize</button>
+        <button class="button is-info" id="startReasoningR">Materialize</button>
       </div>
       <label class="label">Results:</label>
-      <textarea class="textarea is-link" placeholder="Results" id="results"></textarea>
+      <textarea class="textarea is-link" placeholder="Results" id="resultsR"></textarea>
       <div>
-        Execution Time: <spand id="timeResults"/>
+        Execution Time: <spand id="timeResultsR"/>
       </div>
-      <button class="button" id="shareReasoning">Share</button>
-      <div class="control" style="display: none;" id="shareID">
-        <textarea class="textarea is-small" placeholder="Normal textarea" id="shareBox"></textarea>
+      <div class="is-inline-flex">
+        <button class="button" id="shareReasoningR" style="transition: ease-in-out 0.5s;">Share</button>
+        <label class="label" id="shareReasoningTextR" style="transition: ease-in-out 0.5s; opacity: 0; margin: auto 10px" >copied!</label>
+      </div>
+      <div class="control" style="display: none;" id="shareIDR">
+        <textarea class="textarea is-small" placeholder="Normal textarea" id="shareBoxR"></textarea>
       </div>
     </div>
   </div>
-  <div id="rsp" class="content-tab" style="display: none;">
+  <div id="rsp" class="content-tab">
     <div class="notification is-light">
       <label class="label">RSP Rules:</label>
       <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContentRSP"></textarea>
       <label class="label">Continuous SPARQL Query:</label>
-      <textarea class="textarea is-link" placeholder="Enter Query" id="continousQuery"></textarea>
+      <div id="queryRSP"></div>
+
+      <!--<textarea class="textarea is-link" placeholder="Enter Query" id="continousQuery"></textarea>-->
 
       <div class="field is-horizontal">
         <div class="field-label is-normal">
@@ -103,7 +121,49 @@
         <button class="button is-info" id="startRSP">Send</button>
       </div>
       <label class="label">Results:</label>
-      <textarea class="textarea is-link" placeholder="Results" id="resultsRSP"></textarea>
+      <div id="resultsRSP"></div>
+      <!--<textarea class="textarea is-link" placeholder="Results" id="resultsRSP"></textarea>-->
+      <div class="is-inline-flex">
+        <button class="button" id="shareReasoningRSP" style="transition: ease-in-out 0.5s;">Share</button>
+        <label class="label" id="shareReasoningTextRSP" style="transition: ease-in-out 0.5s; opacity: 0; margin: auto 10px" >copied!</label>
+      </div>
+      <div class="control" style="display: none;" id="shareIDRSP">
+        <textarea class="textarea is-small" placeholder="Normal textarea" id="shareBoxRSP"></textarea>
+      </div>
+    </div>
+  </div>
+  <div id="rq" class="content-tab">
+    <div class="notification is-light">
+      <label>Work in progress!</label>
+      <!--
+      <label class="label">ABox:</label>
+      <textarea class="textarea is-link" placeholder="Define Abox" id="aboxContentQ"></textarea>
+      <label class="label">Rules:</label>
+      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContentQ"></textarea>
+      <label class="label">SPARQL Query:</label>
+      <div id="queryQ"></div>
+      <textarea class="textarea is-link" placeholder="Enter Query" id="queryQ"></textarea>
+
+      <div class="control">
+        <button class="button is-info" id="startReasoningQ">Query</button>
+      </div>
+      <label class="label">Results:</label>
+      <table class="table" id="tableContent">
+        <div id="yasre" style="background:#fff"></div>
+      </table>
+
+      <textarea class="textarea is-link" placeholder="Results" id="resultsQ"></textarea>
+      <div>
+        Execution Time: <spand id="timeResults"/>
+      </div>
+      <div class="is-inline-flex">
+        <button class="button" id="shareReasoningQ" style="transition: ease-in-out 0.5s;">Share</button>
+        <label class="label" id="shareReasoningTextQ" style="transition: ease-in-out 0.5s; opacity: 0; margin: auto 10px" >copied!</label>
+      </div>
+      <div class="control" style="display: none;" id="shareIDQ">
+        <textarea class="textarea is-small" placeholder="Normal textarea" id="shareBoxQ"></textarea>
+      </div>
+      -->
     </div>
   </div>
 </div>
@@ -117,10 +177,6 @@
 </footer>
 </body>
 <script>
-  function clicked(){
-    alert("clicked");
-    materialized();
-  }
   function openTab(evt, tabName) {
     var i, x, tablinks;
     x = document.getElementsByClassName("content-tab");
@@ -136,6 +192,5 @@
       evt.currentTarget.className += " is-active";
     }
   }
-    console.log();
 </script>
 </html>

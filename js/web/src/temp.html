@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.0/css/bulma.min.css">
+    <script src="https://code.createjs.com/1.0.0/createjs.min.js"></script>
+    <script defer src="https://use.fontawesome.com/releases/v5.3.1/js/all.js"></script>
+    <script src='https://cdn.plot.ly/plotly-latest.min.js'> </script>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <link href="https://unpkg.com/@triply/yasgui/build/yasgui.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://unpkg.com/@triply/yasgui/build/yasgui.min.js"></script>
+    <script>
+
+
+
+
+    </script>
+</head>
+<body onload="init();">
+
+<nav class="navbar" role="navigation" aria-label="main navigation">
+    <div class="navbar-brand">
+        <a class="navbar-item" href="https://github.com/IBCNServices/StreamingMASSIF">
+            <img src="icon.png" height="28">
+        </a>
+
+        <a role="button" class="navbar-burger burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </a>
+    </div>
+
+    <div id="navbarBasicExample" class="navbar-menu">
+        <div class="navbar-start">
+            <a class="navbar-item">
+                Home
+            </a>
+
+            <a class="navbar-item" href="https://github.com/IBCNServices/StreamingMASSIF/wiki/Processing-Graph">
+                Documentation
+            </a>
+            <a class="navbar-item" onclick="showLoad()">
+                Load
+            </a>
+            <a class="navbar-item" onclick="showConfig()">
+                Get Config
+            </a>
+            <a class="navbar-item" onclick="reset()">
+                Reset
+            </a>
+
+            <div class="navbar-item has-dropdown is-hoverable">
+                <a class="navbar-link">
+                    More
+                </a>
+
+                <div class="navbar-dropdown">
+                    <a class="navbar-item" href="https://github.com/IBCNServices/StreamingMASSIF">
+                        About
+                    </a>
+                    <a class="navbar-item">
+                        Jobs
+                    </a>
+                    <a class="navbar-item">
+                        Contact
+                    </a>
+                    <hr class="navbar-divider">
+                    <a class="navbar-item">
+                        Report an issue
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="navbar-end">
+            <div class="navbar-item">
+                <div class="buttons">
+                    <a class="button is-primary" onclick="save()">
+                        <strong>Activate</strong>
+                    </a>
+                    <a class="button is-light" onclick="deactivate()">
+                        De-activate
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="tabs">
+    <ul>
+        <li class="is-active"><a>New</a></li>
+        <li><a>1</a></li>
+        <li><a>2</a></li>
+        <li><a>3</a></li>
+    </ul>
+</div>
+<div class="tile is-ancestor">
+    <div class="tile is-4 is-vertical is-parent">
+        <div class="tile is-child box">
+            <p class="title">Add Components</p>
+            <p>
+            <div class="buttons">
+                <button class="button" onclick="add('source')">Source</button>
+                <button class="button" onclick="add('window')">Window</button>
+                <button class="button" onclick="add('filter')">Filter</button>
+                <button class="button" onclick="add('abstractor')">Abstractor</button>
+                <button class="button" onclick="add('cep')">CEP</button>
+                <button class="button" onclick="add('sink')">Sink</button>
+                <button class="button" onclick="add('mapper')">Mapper</button>
+                <button class="button" onclick="add('timeout')">TimeOut</button>
+                <!--<button class="button" onclick="toggleLine()">Line</button>-->
+            </div>
+            <button class="button" onclick="deleteComp()">Delete Selection</button>
+            </p>
+        </div>
+        <div class="tile is-child box">
+            <p class="title">Selection Info</p>
+            <div id="sourceInfo" style="display:none;">
+                <div class="control">
+                    <div class="select">
+                        <select>
+                            <option value="fileSource">File</option>
+                            <option value="httpGetSource">HTTP Get</option>
+                            <option value="httpPostSource">HTTP POST</option>
+                            <option value="kafkaSource">Kafka</option>
+                            <option value="httpPostCombinedSource">HTTP Combined POST</option>
+                        </select>
+
+                    </div>
+                </div>
+                <input class="input" type="text" placeholder="URL">
+                <input class="input" type="text" placeholder="Timeout">
+            </div>
+            <div id="windowInfo" style="display:none;">
+                <input class="input" type="text" placeholder="Window Size" >
+                <input class="input" type="text" placeholder="Window Slide" >
+            </div>
+            <div id="filterInfo" style="display:none;">
+                <input class="input" type="text" placeholder="Ontology URL">
+                <textarea class="textarea" placeholder="SPARQL Queries"></textarea>
+                <button onclick="viewQuery()">Open Query Editor</button>
+
+            </div>
+            <div id="mapperInfo" style="display:none;">
+                <label class="checkbox">
+                    <input type="checkbox">
+                    Remember header
+                </label>
+                <textarea class="textarea" placeholder="Mapping definition"></textarea>
+
+            </div>
+            <div id="abstractInfo" style="display:none;">
+                <input class="input" type="text" placeholder="Ontology URL">
+                <input class="input" type="text" placeholder="Head">
+                <input class="input" type="text" placeholder="Tail">
+
+            </div>
+            <div id="cepInfo" style="display:none;">
+                <textarea class="textarea" placeholder="CEP Queries"></textarea>
+                <input class="input" type="text" placeholder="CEP classes">
+            </div>
+            <div id="sinkInfo" style="display:none;">
+                <div class="control">
+                    <div class="select">
+                        <select>
+                            <option value="httpGetSinkCombined">Web Print</option>
+                            <option value="printSink">Print</option>
+                            <option value="fileSink">File</option>
+                            <option value="httpGetSink">HTTP Get</option>
+                            <option value="httpPostSink">HTTP POST</option>
+                            <option value="kafkaSink">Kafka</option>
+                        </select>
+
+                    </div>
+                </div>
+
+
+
+                <input class="input" type="text" placeholder="URL">
+                <input class="input" type="text" placeholder="Timeout">
+                <textarea class="textarea" placeholder="Output will be loaded here"></textarea>
+                <button onclick="loadSinkData()">Load Sink Data</button>
+                <!--<button onclick="viewTable()">View as Table</button>-->
+                <button onclick="viewTable2()">View Results</button>
+                <button onclick="viewStream()">View As Stream</button>
+            </div>
+            <div id="timeoutInfo" style="display:none;">
+                <div class="control">
+                    <div class="select">
+                        <select>
+                            <option value="timeout">Time Out</option>
+                            <option value="dstream">DStream</option>
+                            <option value="istream">IStream</option>
+                            <option value="rstream">RStream</option>
+
+                        </select>
+
+                    </div>
+                </div>
+                <input class="input" type="text" placeholder="input">
+                <textarea class="textarea" placeholder="SPARQL Key-Value Query"></textarea>
+
+            </div>
+            <div id="lineInfoID" style="display:none;">
+                A connection has been selected.
+            </div>
+
+
+            <div v-if="!editMode" id="monitorID">
+                <nav class="level">
+                    <div class="level-item has-text-centered">
+                        <div>
+                            <p class="heading">#Input</p>
+                            <p class="title" id="inputMonitor">3,456</p>
+                        </div>
+                    </div>
+                    <div class="level-item has-text-centered">
+                        <div>
+                            <p class="heading">#Output</p>
+                            <p class="title" id="outputMonitor">123</p>
+                        </div>
+                    </div>
+                    <div class="level-item has-text-centered">
+                        <div>
+                            <p class="heading">Throughput (evts/s)</p>
+                            <p class="title" id="throughputMonitor">120 </p>
+                        </div>
+                    </div>
+                    <div class="level-item has-text-centered">
+                        <div>
+                            <p class="heading">AVG  Time (ms)</p>
+                            <p class="title" id="avgtimeMonitor">120 </p>
+                        </div>
+                    </div>
+                    <div class="level-item has-text-centered">
+                        <div>
+                            <p class="heading">Queue size</p>
+                            <p class="title" id="queueMonitor">10</p>
+                        </div>
+                    </div>
+                    <div class="level-item has-text-centered">
+                        <div>
+                            <i class="fas fa-sync-alt" onclick="loadMonitor()"></i>
+                        </div>
+                    </div>
+                </nav>
+
+            </div>
+        </div>
+    </div>
+    <div class="tile is-parent">
+        <div class="tile is-child box">
+            <p class="title">The Graph</p>
+            <canvas id="demoCanvas" width="1250" height="500"></canvas>
+        </div>
+    </div>
+</div>
+<div class="modal" id="loadWindow">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+        <header class="modal-card-head">
+            <p class="modal-card-title">Load Configuration</p>
+            <button class="delete"  onclick="hideLoad()" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+            Paste the JSON configuration in the box:
+            <textarea class="textarea" placeholder="JSON Config" id="configInput"></textarea>
+        </section>
+        <footer class="modal-card-foot">
+            <button class="button is-success" onclick="loadConfig()">Load Config</button>
+            <button class="button" onclick="hideLoad()">Cancel</button>
+        </footer>
+    </div>
+</div>
+<div class="modal" id="viewTable">
+    <div class="modal-background"></div>
+    <div class="modal-content" style="width:1024px">
+        <table class="table" id="tableContent">
+            <div id="yasre" style="background:#fff"></div>
+
+
+        </table>
+    </div>
+    <button class="modal-close is-large" aria-label="close" onclick="closeTable()"></button>
+</div>
+
+<div class="modal" id="viewStream">
+    <div class="modal-background"></div>
+    <div class="modal-content">
+        <div class="select">
+            <select id="streamSelection"  onchange="fillStream()">
+
+            </select>
+        </div>
+        <div id='streamDiv'></div>
+    </div>
+    <button class="modal-close is-large" aria-label="close" onclick="closeStream()"></button>
+</div>
+<div class="modal" id="viewQuery">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+        <header class="modal-card-head">
+            <p class="modal-card-title">Query Editor</p>
+            <button class="delete" aria-label="close" onclick="closeQuery()"></button>
+        </header>
+        <section class="modal-card-body">
+            <div id="yasgui"></div>
+        </section>
+        <footer class="modal-card-foot">
+            <button class="button is-success" onclick="saveQuery()">Save changes</button>
+            <button class="button" onclick="closeQuery()">Cancel</button>
+        </footer>
+    </div>
+</div>
+<footer class="footer">
+    <div class="content has-text-centered">
+        <p>
+            <strong>Streaming MASSIF</strong> by <a href="https://github.com/pbonte">Pieter Bonte</a>. The source code is available on <a href="https://github.com/IBCNServices/StreamingMASSIF">Github</a> and licensed by
+            <a href="https://raw.githubusercontent.com/pbonte/StreamingMASSIF/master/License.txt">imec</a>.
+        </p>
+    </div>
+</footer>
+<script >
+
+    var drawLine=false;
+    var counter=0;
+    var compMap = {};
+    var idToComp={};
+    var outGoing={};
+    var lines=[];
+    var startFrom=null;
+    var selected=null;
+    var detailMap={};
+    var typesMap={};
+    var queryID=-1;
+    var data ={editMode:true};
+    function init() {
+        stage = new createjs.Stage("demoCanvas");
+
+        // For mobile devices.
+        createjs.Touch.enable(stage);
+
+        // this lets our drag continue to track the mouse even when it leaves the canvas:
+        // play with commenting this out to see the difference.
+        stage.mouseMoveOutside = true;
+
+
+
+        drawLines();
+        stage.update();
+        loadConfigs();
+
+    }
+    function reset(){
+        clearAll();
+        stage.update();
+        data.editMode=true;
+    }
+    function loadConfigs(){
+        var xhr = new XMLHttpRequest();
+        // we defined the xhr
+
+        xhr.onreadystatechange = function () {
+            if (this.readyState != 4) return;
+
+            if (this.status == 200) {
+                console.log(this.responseText);
+                var input =this.responseText
+                let regex = /\,(?!\s*?[\{\[\"\'\w])/g;
+                var json = JSON.parse(input);
+
+                for (const [key, values] of Object.entries(json)) {
+                    clearAll();
+                    parseConfig(values);
+                }
+
+                startFrom=null;
+                drawLines();
+                stage.update();
+                data.editMode=false;
+
+                // we get the returned data
+            }
+            if(counter==0){
+                //nothing loaded from the registered server configurations
+                add('source');
+            }
+            // end of state change: it can be after some time (async)
+        };
+
+        xhr.open('GET', '/configs', true);
+        xhr.send();
+    }
+    function press(evt) {
+        // currentTarget will be the container that the event listener was added to:
+        if(!drawLine) {
+            evt.currentTarget.x = evt.stageX;
+            evt.currentTarget.y = evt.stageY;
+            drawLines();
+            // make sure to redraw the stage to show the change:
+            stage.update();
+        }
+
+    }
+    function clicked(evt){
+        console.log(evt.currentTarget.name);
+        if (startFrom==null){
+            startFrom=evt.currentTarget.name;
+        }else if(startFrom!=evt.currentTarget.name){
+            outGoing[startFrom.toString()].push(evt.currentTarget.name.toString());
+            startFrom=null;
+            drawLines();
+            stage.update();
+        }
+    }
+    function select(evt){
+        if(selected && typeof selected.name !=='string'){
+            selected.alpha=0.8;
+
+            //hide current selection
+
+            var x = document.getElementById(selected.name);
+            x.style.display = "none";
+
+        }else{
+            var x = document.getElementById("lineInfoID");
+            x.style.display = "none";
+        }
+        selected=evt.currentTarget;
+        selected.alpha=1;
+        drawLines();
+        stage.update();
+        if(typeof selected.name !=='string'){
+            var x = document.getElementById(selected.name);
+            x.style.display = "block";
+        }else{
+            var x = document.getElementById("lineInfoID");
+            x.style.display = "block";
+        }
+
+
+    }
+    function drawLines(){
+        //remove current lines
+        lines.map(x=>stage.removeChild(x));
+        lines.length=0;
+
+        //add new lines
+        for (const [ key, value ] of Object.entries(outGoing)) {
+            for (i = 0; i < value.length; i++) {
+                fromObj = idToComp[key];
+                toObj = idToComp[value[i]];
+                line = new createjs.Shape();
+
+                // Add this line shape to the canvas
+                stage.addChild(line);
+
+                line.name = 'line,' + key + ',' + value;
+                //check if a line is selected
+                if(selected && typeof selected.name =='string' && line.name==selected.name){
+                    line.graphics.setStrokeStyle(4).beginStroke("rgba(34, 167, 240, 1)");
+                }else{
+                    //not selected
+                    line.graphics.setStrokeStyle(4).beginStroke("rgba(0,0,0,1)");
+                }
+                line.graphics.moveTo(fromObj.x+50, fromObj.y);
+                // Tell EaselJS where to draw the line to
+                line.graphics.lineTo(toObj.x-50, toObj.y);
+                line.on("click", select)
+
+                // Stop drawing this line
+                line.graphics.endStroke();
+                lines.push(line);
+            }
+        }
+    }
+    function add(type){
+        console.log(type);
+        var currentId=counter++;
+        var circle = new createjs.Shape();
+
+        if(type=='source') {
+            circle.graphics.beginFill("red").drawCircle(0, 0, 50);
+            var text = 'Source';
+            var elem = document.querySelector('#sourceInfo');
+        }
+        if(type=='window'){
+            circle.graphics.beginFill("blue").drawRoundRect(-50, -50, 100, 70,10);
+            var text='Window';
+            var elem = document.querySelector('#windowInfo');
+        }
+        if(type=='filter'){
+            circle.graphics.beginFill("green").drawRoundRect(-50, -50, 100, 70,10);
+            var text='Filter';
+            var elem = document.querySelector('#filterInfo');
+
+        }
+        if(type=='abstractor'){
+            circle.graphics.beginFill("orange").drawRoundRect(-50, -50, 100, 70,10);
+            var text='Abstractor';
+            var elem = document.querySelector('#abstractInfo');
+        }
+        if(type=='cep'){
+            circle.graphics.beginFill("grey").drawRoundRect(-50, -50, 100, 70,10);
+            var text='CEP';
+            var elem = document.querySelector('#cepInfo');
+
+        }
+        if(type=='mapper'){
+            circle.graphics.beginFill("pink").drawRoundRect(-50, -50, 100, 70,10);
+            var text='Mapper';
+            var elem = document.querySelector('#mapperInfo');
+
+        }
+        if(type=='sink') {
+            circle.graphics.beginFill("black").drawCircle(0, 0, 30);
+            var text = 'Sink';
+            var elem = document.querySelector('#sinkInfo');
+
+        }
+        if(type=='timeout') {
+            circle.graphics.beginFill("brown").drawRoundRect(-50, -50, 100, 70,10);
+            var text = 'TimeOut';
+            var elem = document.querySelector('#timeoutInfo');
+
+        }
+        //copy new div
+        var clone = elem.cloneNode(true);
+        // Update the ID and add a class
+        clone.id = currentId;
+        clone.classList.add('text-large');
+
+        // Inject it into the DOM
+        elem.after(clone);
+        var label = new createjs.Text(text, "bold 14px Arial", "#FFFFFF");
+
+        label.textAlign = "center";
+        label.y = -7;
+
+        var dragger = new createjs.Container();
+        dragger.x = Math.min((Object.keys(idToComp).length)*150+50,1100);
+        dragger.y = getRandomInt(100)+50;
+        dragger.addChild(circle, label);
+        idToComp[currentId] = dragger;
+        outGoing[currentId] = [];
+        typesMap[currentId] = text;
+        dragger.name=currentId;
+        circle.name=currentId;
+        stage.addChild(dragger);
+        dragger.on("pressmove",press);
+        dragger.on("dblclick",clicked);
+        //circle.on("dblclick", handleMouseEvent);
+        dragger.on("click",select);
+        dragger.alpha=0.8;
+        stage.update();
+
+        return clone;
+
+    }
+    function getRandomInt(max) {
+        return Math.floor(Math.random() * Math.floor(max));
+    }
+    function toggleLine(){
+        drawLine=!drawLine;
+    }
+    function handleMouseEvent(evt) {
+        console.log(evt.target.name);
+        // to save CPU, we're only updating when we need to, instead of on a tick:1
+    }
+    function deleteComp(){
+        if(selected){
+            stage.removeChild(selected);
+            if(typeof selected.name ==='string' && selected.name.includes('line')){
+                var connectedIds = selected.name.split(',');
+                if(connectedIds[1] in outGoing){
+                    outGoing[connectedIds[1]]=[];
+                }else{
+                    outGoing[connectedIds[2]]=[];
+                }
+            }else{
+                //delete all the outgoing edges from the deleted compoment
+                outGoing[selected.name]=[];
+                for (const [ key, value ] of Object.entries(outGoing)) {
+                    //check if any compoment has the deleted component in its outgoing components
+                    if(value.some(e=>e===String(selected.name) )){
+                        const index = value.indexOf(String(selected.name));
+                        if (index > -1) {
+                            value.splice(index, 1);
+                        }
+                    }
+                }
+                //delete the component from the mapping
+                delete idToComp[selected.name];
+                delete typesMap[selected.name];
+                delete outGoing[selected.name];
+            }
+            drawLines();
+            stage.update();
+
+        }
+    }
+    function generateConfig(){
+        var config = {"configuration":outGoing,"components":{}};
+        //extract the configs
+        for (const [ key, value ] of Object.entries(typesMap)) {
+
+            var elem = document.getElementById(key);
+            if(value==='Window'){
+                var windowSize = parseInt(elem.getElementsByTagName('input')[0].value);
+                var windowSlide = parseInt(elem.getElementsByTagName('input')[1].value);
+                config.components[key]={"type": "window","size": windowSize,"slide": windowSlide};
+            }
+            else if(value==='Source'){
+                var selec = elem.getElementsByTagName('select')[0];
+                var selectedInput = selec.options[selec.selectedIndex].value;
+                var input1 = elem.getElementsByTagName('input')[0].value;
+                var input2 = elem.getElementsByTagName('input')[1].value;
+                if(selectedInput==="kafkaSource"){
+                    config.components[key]={"type": "Source","impl": selectedInput,"kafkaServer": input1,"kafkaTopic":input2};
+                }else if(selectedInput==="httpPostSource"){
+                    config.components[key]={"type": "Source","impl": selectedInput,"path": input1,"port":parseInt(input2)};
+                }else if(selectedInput==="httpGetSource"){
+                    config.components[key]={"type": "Source","impl": selectedInput,"url": input1,"timeout":parseInt(input2)};
+                }else if(selectedInput==="fileSource"){
+                    config.components[key]={"type": "Source","impl": selectedInput,"fileName": input1,"timeout":parseInt(input2)};
+                }else if(selectedInput==="httpPostCombinedSource"){
+                    config.components[key]={"type": "Source","impl": selectedInput,"path": input1};
+                }else{
+                    config.components[key]={"type": "Source","impl": selectedInput,"option1": input1,"option2":input2};
+                }
+            }else if(value==='Filter'){
+                var ontUrl = elem.getElementsByTagName('input')[0].value;
+                var query = elem.getElementsByTagName('textarea')[0].value;
+                config.components[key]={"type": "Filter","impl": "jena","ontology": ontUrl,"queries":[query]};
+
+            }else if(value==='Mapper'){
+                var keepHeader = elem.getElementsByTagName('input')[0].checked;
+                var query = elem.getElementsByTagName('textarea')[0].value;
+                config.components[key]={"type": "Mapper","keepHeader": keepHeader,"mapping":query};
+
+            }
+            else if(value==='Abstractor'){
+                var ontUrl = elem.getElementsByTagName('input')[0].value;
+                var head = elem.getElementsByTagName('input')[1].value;
+                var tail = elem.getElementsByTagName('input')[2].value;
+                config.components[key]={"type": "Abstract","ontologyIRI": ontUrl,"expressions":[{'head':head,'tail':tail}]};
+
+            }
+            else if(value==='Sink'){
+                var selec = elem.getElementsByTagName('select')[0];
+                var selectedInput = selec.options[selec.selectedIndex].value;
+                var input1 = elem.getElementsByTagName('input')[0].value;
+                var input2 = elem.getElementsByTagName('input')[1].value;
+                if(selectedInput==="kafkaSink"){
+                    config.components[key]={"type": "Sink","impl": selectedInput,"kafkaServer": input1,"kafkaTopic":input2};
+                }else if(selectedInput==="httpPostSink"){
+                    config.components[key]={"type": "Sink","impl": selectedInput,"path": input1,"port":parseInt(input2)};
+                }else if(selectedInput==="httpGetSink"){
+                    config.components[key]={"type": "Sink","impl": selectedInput,"url": input1,"timeout":parseInt(input2)};
+                }else if(selectedInput==="fileSink"){
+                    config.components[key]={"type": "Sink","impl": selectedInput,"fileName": input1,"timeout":parseInt(input2)};
+                }else if(selectedInput==="printSink"){
+                    config.components[key]={"type": "Sink","impl": selectedInput};
+                }else if(selectedInput==="httpGetSinkCombined"){
+                    config.components[key]={"type": "Sink","impl": selectedInput,"path": key,"config":input1};
+                }else{
+                    config.components[key]={"type": "Sink","impl": selectedInput,"option1": input1,"option2":input2};
+                }
+            }
+            else if(value=='CEP'){
+                var query = elem.getElementsByTagName('textarea')[0].value;
+                var classes = elem.getElementsByTagName('input')[0].value;
+                config.components[key]={"type": "CEP","query": query,"classes":classes};
+            }else if(value==='TimeOut'){
+                var selec = elem.getElementsByTagName('select')[0];
+                var selectedInput = selec.options[selec.selectedIndex].value;
+                var input1 = elem.getElementsByTagName('input')[0].value;
+                var query = elem.getElementsByTagName('textarea')[0].value;
+                config.components[key]={"type": "TimeOut","impl": selectedInput,"option1": input1,"option2":query};
+
+            }
+        }
+        return config;
+
+    }
+    function save(){
+
+        var config = generateConfig();
+        console.log(JSON.stringify(config));
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState == XMLHttpRequest.DONE) {
+                if (this.status == 200) {
+                    //var data = JSON.parse(this.responseText);
+                    queryID= this.responseText;
+                    data.editMode=false;
+                }else{
+                    alert("Query registration failed! (See coonsole for more detailed information.)");
+                    console.log(this.responseText);
+                }
+            }
+        }
+        xhr.open("POST", '/register', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify(config));
+    }
+    function deactivate(){
+        if(queryID>-1 && !data.editMode){
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", '/stop', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.send(parseInt(queryID));
+        }
+    }
+    function loadSinkData(){
+        if(selected && typesMap[selected.name]==='Sink'){
+            var xhr = new XMLHttpRequest();
+            // we defined the xhr
+
+            xhr.onreadystatechange = function () {
+                if (this.readyState != 4) return;
+
+                if (this.status == 200) {
+                    //var data = JSON.parse(this.responseText);
+                    console.log(this.responseText);
+                    if(this.responseText.length > 100000){
+                        alert('Output too large! Load again or use last in sink options! (Or check the logs)')
+                    }else{
+
+                        var elem = document.getElementById(selected.name);
+                        elem.getElementsByTagName('textarea')[0].value = this.responseText;
+                    }
+                    // we get the returned data
+                }
+                // end of state change: it can be after some time (async)
+            };
+
+            xhr.open('GET', '/httpgetsink/'+selected.name, true);
+            xhr.send();
+        }
+    }
+    function loadMonitor(){
+        if(selected && !data.editMode){
+            var xhr = new XMLHttpRequest();
+            // we defined the xhr
+
+            xhr.onreadystatechange = function () {
+                if (this.readyState != 4) return;
+
+                if (this.status == 200) {
+                    //var data = JSON.parse(this.responseText);
+                    console.log(this.responseText);
+                    var obj = JSON.parse(this.responseText);
+                    document.getElementById("inputMonitor").innerHTML = obj["eventsIn"];
+                    document.getElementById("outputMonitor").innerHTML = obj["eventsOut"];
+                    document.getElementById("queueMonitor").innerHTML = obj["queueSize"];
+                    document.getElementById("throughputMonitor").innerHTML = obj["throughput"].toFixed(1);
+                    document.getElementById("avgtimeMonitor").innerHTML = obj["avgTime"];
+                    // we get the returned data
+                }
+                // end of state change: it can be after some time (async)
+            };
+
+            xhr.open('GET', '/monitor/'+selected.name, true);
+            xhr.send();
+        }
+    }
+    function showLoad(){
+        var x = document.getElementById("loadWindow");
+        x.style.display = "block";
+    }
+    function download(filename, text) {
+        var element = document.createElement('a');
+        element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+        element.setAttribute('download', filename);
+
+        element.style.display = 'none';
+        document.body.appendChild(element);
+
+        element.click();
+
+        document.body.removeChild(element);
+    }
+    function showConfig(){
+        var config = generateConfig();
+        download("config.json",JSON.stringify(config));
+    }
+    function hideLoad(){
+        var x = document.getElementById("loadWindow");
+        x.style.display = "none";
+    }
+    function clearAll(){
+        for (const [key, value] of Object.entries(idToComp)) {
+            stage.removeChild(value);
+        }
+        for (var i = lines.length - 1; i >= 0; i--) {
+            stage.removeChild(lines[i]);
+        }
+        counter=0;
+        compMap = {};
+        idToComp={};
+        outGoing={};
+        lines=[];
+        startFrom=null;
+        if(selected && typeof selected.name !=='string'){
+            selected.alpha=0.8;
+
+            //hide current selection
+
+            var x = document.getElementById(selected.name);
+            x.style.display = "none";
+
+        }
+        selected=null;
+        detailMap={};
+        typesMap={};
+        data.editMode=true;
+    }
+    function replaceVals(arr,subs){
+        var i = 0;
+        var newArr = [];
+        for (i = 0; i < arr.length; i++) {
+            if(subs.hasOwnProperty(arr[i])){
+                newArr.push(subs[arr[i]]);
+            }else{
+                newArr.push(arr[i]);
+            }
+        }
+        return newArr;
+    }
+    function parseConfig(config){
+        idSubs={}
+        for (const [key, values] of Object.entries(config["components"])) {
+            console.log(`${key}: ${values}`);
+            //draw on canvas
+            var elem = add(values["type"].toLowerCase());
+            //add the properties
+            var value = values["type"].toLowerCase();
+            idSubs[key] = counter - 1;
+            //var elem = document.getElementById(counter-1);
+
+            if(value==='window'){
+                elem.getElementsByTagName('input')[0].value=values["size"];
+                elem.getElementsByTagName('input')[1].value=values["slide"];
+            }
+            else if(value==='source'){
+                var selectedInput = values["impl"].toLowerCase();
+                var selectElem=elem.getElementsByTagName('select')[0];
+                if(selectedInput==="kafkasource"){
+                    console.log(selectElem.value);
+                    selectElem.value='kafkaSource';
+                    console.log(selectElem.value);
+                    elem.getElementsByTagName('input')[0].value = values["kafkaServer"];
+                    elem.getElementsByTagName('input')[1].value = values["kafkaTopic"];
+                }else if(selectedInput==="httppostsource"){
+                    selectElem.value='httpPostSource';
+                    elem.getElementsByTagName('input')[0].value = values["path"];
+                    elem.getElementsByTagName('input')[1].value = values["port"];
+                }else if(selectedInput==="httpgetsource"){
+                    selectElem.value='httpGetSource';
+                    elem.getElementsByTagName('input')[0].value = values["url"];
+                    elem.getElementsByTagName('input')[1].value = values["timeout"];
+                }else if(selectedInput==="filesource"){
+                    selectElem.value='fileSource';
+                    elem.getElementsByTagName('input')[0].value = values["fileName"];
+                    elem.getElementsByTagName('input')[1].value = values["timeout"];
+                }
+                else if(selectedInput==="httppostcombinedsource"){
+                    selectElem.value='httpPostCombinedSource';
+                    elem.getElementsByTagName('input')[0].value = values["path"];
+                    elem.getElementsByTagName('input')[1].value = "";
+                }else{
+                    set_selection(selectElem,values["impl"]);
+                    elem.getElementsByTagName('input')[0].value = values["option1"];
+                    elem.getElementsByTagName('input')[1].value = values["option2"];
+                }
+            }else if(value==='filter'){
+                elem.getElementsByTagName('input')[0].value = values["ontology"];
+                elem.getElementsByTagName('textarea')[0].value = values["queries"];
+
+            }else if(value==='abstractor'){
+                elem.getElementsByTagName('input')[0].value= values["ontologyIRI"];
+                elem.getElementsByTagName('input')[1].value = values["expressions"][0]["head"];
+                elem.getElementsByTagName('input')[1].value = values["expressions"][0]["tail"];
+            }
+            else if(value==='mapper'){
+                elem.getElementsByTagName('input')[0].checked = values["keepHeader"];
+                elem.getElementsByTagName('textarea')[0].value = values["mapping"];
+            }
+            else if(value==='sink'){
+                var selectedInput = values["impl"].toLowerCase();
+                var selectElem=elem.getElementsByTagName('select')[0];
+                if(selectedInput==="kafkasink"){
+                    selectElem.value='kafkaSink';
+                    elem.getElementsByTagName('input')[0].value = values["kafkaServer"];
+                    elem.getElementsByTagName('input')[0].value = values["kafkaTopic"];
+
+                }else if(selectedInput==="httppostsink"){
+                    selectElem.value='httpPostSink';
+                    elem.getElementsByTagName('input')[0].value = values["path"];
+                    elem.getElementsByTagName('input')[0].value = values["port"];
+                }else if(selectedInput==="httpgetsink"){
+                    selectElem.value='httpGetSink';
+                    elem.getElementsByTagName('input')[0].value = values["url"];
+                    elem.getElementsByTagName('input')[0].value = values["timeout"];
+                }else if(selectedInput==="filesink"){
+                    selectElem.value='fileSink';
+                    elem.getElementsByTagName('input')[0].value = values["fileName"];
+                    elem.getElementsByTagName('input')[0].value = values["timeout"];
+                }else if(selectedInput==="printsink"){
+                    //TODO
+                    selectElem.value='printSink';
+                }else if(selectedInput==="httpgetsinkcombined"){
+                    selectElem.value='httpGetSinkCombined';
+                    elem.getElementsByTagName('input')[0].value = values["path"];
+                    elem.getElementsByTagName('input')[0].value = values["config"];
+                }else{
+                    set_selection(selectElem,values["impl"]);
+                    elem.getElementsByTagName('input')[0].value = values["option1"];
+                    elem.getElementsByTagName('input')[1].value = values["option2"];
+                }
+            }
+            else if(value==='timeout'){
+                var selectedInput = values["impl"].toLowerCase();
+                var selectElem=elem.getElementsByTagName('select')[0];
+
+
+                set_selection(selectElem,values["impl"]);
+                elem.getElementsByTagName('input')[0].value = values["option1"];
+                elem.getElementsByTagName('textarea')[0].value = values["option2"];
+
+            }
+
+        }
+        //connect
+        outGoing=config["configuration"];
+        newvals={}
+        for (var key in outGoing) {
+            if(idSubs.hasOwnProperty(key)){
+                newvals[idSubs[key]]=replaceVals(outGoing[key],idSubs);
+            }else{
+                newvals[key]=replaceVals(outGoing[key],idSubs);
+            }
+        }
+        outGoing = newvals;
+    }
+    function loadConfig(){
+        clearAll();
+        var config = JSON.parse(document.getElementById("configInput").value);
+        parseConfig(config);
+        startFrom=null;
+        drawLines();
+        stage.update();
+        hideLoad();
+    }
+    function set_selection(select,c){
+        for(var i = 0;i < select.options.length;i++){
+            if(select.options[i].value.toLowerCase() == c.toLowerCase() ){
+                select.options[i].selected = true;
+            }
+        }
+    }
+    function own_split(row){
+        var rowSplit=",";
+        if(row.includes(",")){
+            rowSplit=",";
+        }else if(row.includes(" ")){
+            rowSplit=" ";
+        }else if(row.includes("\\n")){
+            rowSplit="\\n";
+        }
+        return row.split(rowSplit);
+    }
+    function toTable(row,rowType){
+
+        var rowContent = own_split(row);
+        var newRow ="<tr>";
+        for (index = 0; index < rowContent.length; index++) {
+            newRow+="<"+rowType+">"+rowContent[index]+"</"+rowType+">";
+        }
+        newRow+="</tr>";
+        return newRow;
+    }
+    function getInputData(){
+        var x = document.getElementById(selected.name);
+        var inputData = x.getElementsByTagName('textarea')[0].value;
+        inputData = inputData.substring(2,inputData.length-2);
+        console.log(inputData);
+
+        var tableContent = document.getElementById("tableContent");
+        var splitChar="\",\"";
+        if(inputData.includes("\\n")){
+            splitChar="\\n";
+        }
+        var lines = inputData.split(splitChar);
+        return lines;
+    }
+    function viewTable(){
+        var modal = document.getElementById("viewTable");
+        var lines = getInputData();
+        modal.style.display = "block";
+        tableContent.innerHTML="  <thead>"+toTable(lines[0],"th")+"</thead>";
+        tableContent.innerHTML+="<tbody>";
+        for (rowCounter = 1; rowCounter < lines.length && rowCounter < 500; rowCounter++) {
+            tableContent.innerHTML+=toTable(lines[rowCounter],"td");
+        }
+        tableContent.innerHTML+="</tbody>";
+    }
+    //removes the uri < and > from a uri string
+    function remove_uri(uri){
+        if(uri[0]=='<' && uri[uri.length-1]=='>'){
+            uri = uri.substring(1,uri.length-2);
+        }
+        return uri;
+    }
+    function viewTable2(){
+        var modal = document.getElementById("viewTable");
+
+        var x = document.getElementById(selected.name);
+        var data = x.getElementsByTagName('textarea')[0].value;
+        data =data.substring(2,data.length-2);
+        var lines = data.split("\\n");
+        var head = lines[0];
+        //check if there is a header
+
+        var headVars = own_split(head);
+        if(head[0]=='<'){
+            for(headCount=0;headCount<headVars.length;headCount++){
+                headVars[headCount] = "Var " + headCount;
+            }
+
+        }
+        headVars.push("window");
+
+        var results = [];
+        var windowCounter=0;
+        //iterate over remaining lines:
+        for (rowCounter = 1; rowCounter < lines.length ; rowCounter++) {
+            if(!lines[rowCounter].includes(head)){
+                var currentResult ={};
+                var result=own_split(lines[rowCounter]);
+                for(varCounter = 0 ; varCounter<result.length;varCounter++){
+                    currentResult[headVars[varCounter]]={type:"uri",value:remove_uri(result[varCounter])};
+                }
+                currentResult["window"]={type:"uri",value:windowCounter};
+                results.push(currentResult);
+            }else{
+                windowCounter++;
+            }
+        }
+        var response={head:{vars:headVars},results:{bindings:results}};
+        console.log(response);
+        yasre.setResponse(response);
+        modal.style.display = "block";
+    }
+    function closeTable(){
+        var modal = document.getElementById("viewTable");
+        modal.style.display = "none";
+    }
+    function fillStream(){
+        var lines = getInputData();
+        var selection = document.getElementById("streamSelection");
+        var selectionID=selection.value;
+        var selectedData= [];
+        for (rowCounter = 1; rowCounter < lines.length && rowCounter < 500; rowCounter++) {
+            var currentLine = lines[rowCounter].split(',');
+            if(!isNaN(currentLine[selectionID])){
+                selectedData.push(currentLine[selectionID]);
+            }
+        }
+        var data = [
+            {
+
+                y: selectedData,
+                type: 'scatter'
+            }
+        ];
+
+        Plotly.newPlot('streamDiv', data);
+    }
+    function viewStream(){
+        var modal = document.getElementById("viewStream");
+        modal.style.display = "block";
+
+
+        var lines = getInputData();
+        var selection = document.getElementById("streamSelection");
+
+        var rowContent = lines[0].split(",");
+        var newOption ="";
+        for (index = 0; index < rowContent.length; index++) {
+            newOption+="<option value=\""+index+"\">"+rowContent[index]+"</option>";
+        }
+        selection.innerHTML=newOption;
+
+
+    }
+    function viewQuery(){
+        var modal = document.getElementById("viewQuery");
+        modal.style.display = "block";
+        //hack to show the yasqui query
+        yasgui.stopDrag();
+        //check if there has been some querry defined
+        var x = document.getElementById(selected.name);
+        if (x.getElementsByTagName('textarea')[0].value != "" ){
+            yasgui.setValue(x.getElementsByTagName('textarea')[0].value);
+        }
+
+    }
+    function closeQuery(){
+        var modal = document.getElementById("viewQuery");
+        modal.style.display = "none";
+
+    }
+    function saveQuery(){
+        closeQuery();
+        var x = document.getElementById(selected.name);
+        x.getElementsByTagName('textarea')[0].value = yasgui.getQueryWithValues();
+    }
+    function closeStream(){
+        var modal = document.getElementById("viewStream");
+        modal.style.display = "none";
+    }
+    async function continuousUpdate () {
+        console.log("updating");
+        //while(true){
+        //   setTimeout(function(){ loadMonitor(); }, 1000);
+        //}
+    }
+    function addSinkOption(){
+        //get additional sinkOptions from server
+        var xhr = new XMLHttpRequest();
+        // we defined the xhr
+
+        xhr.onreadystatechange = function () {
+            if (this.readyState != 4) return;
+
+            if (this.status == 200) {
+                var data = JSON.parse(this.responseText);
+                for (i = 0; i < data.length; i++) {
+                    option = document.createElement( 'option' );
+                    option.text = data[i];
+                    option.value = data[i];
+                    var identifier = '#sinkInfo';
+                    if(data[i].endsWith('Source')){
+                        identifier = '#sourceInfo';
+                    }
+                    var elem = document.querySelector(identifier);
+                    var select = elem.getElementsByTagName('select')[0];
+                    select.add( option );
+                }
+            }
+        };
+
+        xhr.open('GET', '/sinks', true);
+        xhr.send();
+
+    }
+    addSinkOption();
+    //continuousUpdate ();
+    setInterval(loadMonitor, 2000);
+    var monitorVue = new Vue({
+        el: '#monitorID',
+        data: data
+
+    })
+    Yasqe.forkAutocompleter('class', {
+        name: "customClassCompleterObj",
+        get: function(yasqe, token) {
+            return Promise.resolve([
+                "https://w3id.org/bot#Building",
+                "https://pi.pauwel.be/voc/buildingelement#BuildingElement",
+                "https://w3id.org/bot#Element",
+                "https://pi.pauwel.be/voc/buildingelement#Column",
+                "https://pi.pauwel.be/voc/buildingelement#Column-COLUMN",
+                "https://pi.pauwel.be/voc/buildingelement#Door",
+                "https://pi.pauwel.be/voc/buildingelement#Door-DOOR",
+                "https://w3id.org/product/Furnishing#Furniture",
+                "https://w3id.org/bot#Site",
+                "https://w3id.org/bot#Space",
+                "https://w3id.org/bot#Storey",
+                "https://pi.pauwel.be/voc/buildingelement#Window",
+                "https://pi.pauwel.be/voc/buildingelement#Window-WINDOW",
+                "http://www.w3.org/ns/sosa/FeatureOfInterest",
+                "http://www.w3.org/ns/sosa/ObservableProperty",
+                "http://www.w3.org/ns/sosa/Sensor",
+                "http://www.w3.org/ns/sosa/Observation"])
+        }
+    })
+    Yasqe.forkAutocompleter('property', {
+        name: "customPropertyCompleterObj",
+        get: function(yasqe, token) {
+            return Promise.resolve([
+                "http://example.com/sensors/has_location",
+                "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                "https://w3id.org/bot#hasStorey",
+                "https://w3id.org/props#globalIdIfcRoot_attribute_simple",
+                "https://w3id.org/props#numberOfStoreys_simple",
+                "https://w3id.org/props#reference_simple",
+                "https://w3id.org/props#batid_attribute_simple",
+                "https://w3id.org/props#isExternal_simple",
+                "https://w3id.org/props#nameIfcRoot_attribute_simple",
+                "https://w3id.org/props#objectTypeIfcObject_attribute_simple",
+                "https://w3id.org/props#loadBearing_simple",
+                "https://w3id.org/props#slope_simple",
+                "https://w3id.org/props#overallHeightIfcDoor_attribute_simple",
+                "https://w3id.org/props#overallWidthIfcDoor_attribute_simple",
+                "https://w3id.org/bot#hasBuilding",
+                "https://w3id.org/props#refElevationIfcSite_attribute_simple",
+                "https://w3id.org/bot#adjacentElement",
+                "https://w3id.org/bot#adjacentZone",
+                "https://w3id.org/bot#containsElement",
+                "https://w3id.org/props#longNameIfcSpatialElement_attribute_simple",
+                "https://w3id.org/bot#hasSpace",
+                "https://w3id.org/props#aboveGround_simple",
+                "https://w3id.org/props#elevationIfcBuildingStorey_attribute_simple",
+                "https://w3id.org/props#overallHeightIfcWindow_attribute_simple",
+                "https://w3id.org/props#overallWidthIfcWindow_attribute_simple",
+                "http://www.w3.org/ns/sosa/hasProperty",
+                "http://www.w3.org/ns/sosa/observes",
+                "http://www.w3.org/ns/sosa/hasFeatureOfInterest",
+                "http://www.w3.org/ns/sosa/hasSimpleResult",
+                "http://www.w3.org/ns/sosa/madeBySensor",
+                "http://www.w3.org/ns/sosa/observedProperty",
+                "http://www.w3.org/ns/sosa/resultTime",
+                "https://www.w3.org/2003/01/geo/wgs84_pos#lat",
+                "https://www.w3.org/2003/01/geo/wgs84_pos#long"])
+        }
+    })
+    Yasqe.defaults.autocompleters = [ 'customClassCompleterObj', 'customPropertyCompleterObj', 'variables'];
+    const yasgui = new Yasqe(document.getElementById("yasgui"));
+    const yasre = new Yasr(document.getElementById("yasre"));
+
+
+</script>
+<style>
+    .yasqe .yasqe_buttons {
+        display: none ;
+    }
+    .yasqe .yasqe_tooltip {
+        background: #fff;
+        color: #000;
+    }
+
+    .modal-content {
+        margin-top: 100px;
+        width: 750px;
+    }
+</style>
+</body>
+</html>
