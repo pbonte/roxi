@@ -21,7 +21,7 @@ const yasr = new Yasr(
     document.getElementById('resultsRSP')
 );
 
-yasr.setResponse({head:{vars:[]},results:{bindings:[]}});
+yasr.setResponse({head:{vars:[""]},results:{bindings:[{"":{type:"literal",value: ""}}]}});
 
 tboxElement.value = rules;
 yasqe.setValue(query);
@@ -48,7 +48,6 @@ function callback(val) {
     results.push(temp)
     var response={head:{vars:headVars},results:{bindings:results}};
     yasr.setResponse(response);
-    console.log(response);
     //document.getElementById('resultsRSP').value = val +"@"+currentTs+"\n" + document.getElementById('resultsRSP').value;
 }
 
