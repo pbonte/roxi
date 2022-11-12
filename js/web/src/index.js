@@ -39,11 +39,16 @@ function start(){
         decodeAndAssign(gup('eventID', window.location.href),'eventID');
         decodeAndAssign(gup('timestamp', window.location.href),'timestamp');
     }
-    else {
+    else if(view === 'rq') {
         openTab(event,'rq');
         decodeAndAssign(gup('abox', window.location.href),'aboxContentQ');
         decodeAndAssign(gup('rules', window.location.href),'rulesContentQ');
         decodeAndAssign(gup('query', window.location.href),'queryQ');
+    }
+    else {
+        openTab(event,'reasoning');
+        decodeAndAssign(gup('abox', window.location.href),'aboxContentR');
+        decodeAndAssign(gup('rules', window.location.href),'rulesContentR');
     }
 }
 start();

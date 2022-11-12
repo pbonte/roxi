@@ -60,7 +60,7 @@ const startRSP = () => {
 
         let abox = "";
         let query = yasqe.getValue();
-        //yasqe.setAttribute('disabled', '');
+        document.getElementById("disableQueryRSP").style.display = "block";
 
         let width = windowWidthElement.value;
         windowWidthElement.setAttribute('disabled', '');
