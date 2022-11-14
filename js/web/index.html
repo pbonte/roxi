@@ -4,10 +4,22 @@
   <meta charset="utf-8">
   <title>RoXi Reasoner</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+  <link href="https://unpkg.com/@triply/yasgui/build/yasgui.min.css" rel="stylesheet" type="text/css" />
+
+  <style>
+    .yasqe .yasqe_buttons {
+      display: none ;
+    }
+    .yasqe .yasqe_tooltip {
+      background: #fff;
+      color: #000;
+    }
+  </style>
+
 </head>
 <body>
 <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
-<script src="./bootstrap.js"></script>
+<script defer src="./bootstrap.js"></script>
 
 <section class="hero is-small is-info">
   <div class="hero-body">
@@ -21,37 +33,57 @@
 </section>
 <div class="tabs">
   <ul>
-    <li class="tab is-active" onclick="openTab(event,'reasoning')"><a>Reasoning</a></li>
-    <li class="tab" onclick="openTab(event,'rsp')"><a>RDF Stream Processing</a></li>
+    <li class="tab reasoning" onclick="openTab(event,'reasoning')"><a>Reasoning</a></li>
+    <li class="tab rsp" onclick="openTab(event,'rsp')"><a>RDF Stream Processing</a></li>
+    <li class="tab rq" onclick="openTab(event,'rq')"><a>Reasoning and Querying</a></li>
   </ul>
 </div>
 <div class="container">
   <div id="reasoning" class="content-tab" >
     <div class="notification is-light">
       <label class="label">ABox:</label>
-      <textarea class="textarea is-link" placeholder="Define Abox" id="aboxContent"></textarea>
+      <textarea class="textarea is-link" placeholder="Define Abox" id="aboxContentR" autocomplete="off"></textarea>
       <label class="label">Rules:</label>
-      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContent"></textarea>
+      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContentR" autocomplete="off"></textarea>
       <div class="control">
-        <button class="button is-info" id="startReasoning">Materialize</button>
+        <button class="button is-info" id="startReasoningR">Materialize</button>
       </div>
       <label class="label">Results:</label>
-      <textarea class="textarea is-link" placeholder="Results" id="results"></textarea>
+      <textarea class="textarea is-link" placeholder="Results" id="resultsR" autocomplete="off"></textarea>
       <div>
-        Execution Time: <spand id="timeResults"/>
+        Execution Time: <spand id="timeResultsR"/>
       </div>
-      <button class="button" id="shareReasoning">Share</button>
-      <div class="control" style="display: none;" id="shareID">
-        <textarea class="textarea is-small" placeholder="Normal textarea" id="shareBox"></textarea>
+      <div class="is-inline-flex">
+        <button class="button" id="shareReasoningR" style="transition: ease-in-out 0.5s;">Share</button>
+        <label class="label" id="shareReasoningTextR" style="transition: ease-in-out 0.5s; opacity: 0; margin: auto 10px" >copied!</label>
+      </div>
+      <div class="control" style="display: none;" id="shareIDR">
+        <textarea class="textarea is-small" placeholder="Normal textarea" id="shareBoxR" autocomplete="off"></textarea>
       </div>
     </div>
   </div>
-  <div id="rsp" class="content-tab" style="display: none;">
+  <div id="rsp" class="content-tab">
     <div class="notification is-light">
       <label class="label">RSP Rules:</label>
-      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContentRSP"></textarea>
+      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContentRSP" autocomplete="off"></textarea>
       <label class="label">Continuous SPARQL Query:</label>
-      <textarea class="textarea is-link" placeholder="Enter Query" id="continousQuery"></textarea>
+      <div id="queryRSP" style="position: relative">
+        <div id="disableQueryRSP" style="
+          cursor: not-allowed;
+          display: none;
+          position: absolute;
+          width: 100%;
+          height: calc(100% - 10px);
+          background: black;
+          left: 0px;
+          top: 0px;
+          opacity: 0.035;
+          z-index: 10;
+        ">
+        </div>
+      </div>
+
+      <!--<textarea class="textarea is-link" placeholder="Enter Query" id="continousQuery"></textarea>-->
 
       <div class="field is-horizontal">
         <div class="field-label is-normal">
@@ -60,7 +92,7 @@
         <div class="field-body">
           <div class="field">
             <p class="control">
-              <input class="input" type="test" id="windowWidth" value="10">
+              <input class="input" type="test" id="windowWidth" value="10" autocomplete="off">
             </p>
           </div>
         </div>
@@ -70,7 +102,7 @@
         <div class="field-body">
           <div class="field">
             <p class="control">
-              <input class="input" type="text" id="windowSlide" value="2">
+              <input class="input" type="text" id="windowSlide" value="2" autocomplete="off">
             </p>
           </div>
         </div>
@@ -83,7 +115,7 @@
         <div class="field-body">
           <div class="field">
             <p class="control">
-              <input class="input" type="test" id="eventID" value="<http://test/0> <http://test/isIn> <http://test/1>.">
+              <input class="input" type="test" id="eventID" value="<http://test/0> <http://test/isIn> <http://test/1>." autocomplete="off">
             </p>
           </div>
         </div>
@@ -93,7 +125,7 @@
         <div class="field-body">
           <div class="field">
             <p class="control">
-              <input class="input" type="text" id="timestamp" value="0">
+              <input class="input" type="text" id="timestamp" value="0" autocomplete="off">
             </p>
           </div>
         </div>
@@ -103,7 +135,49 @@
         <button class="button is-info" id="startRSP">Send</button>
       </div>
       <label class="label">Results:</label>
-      <textarea class="textarea is-link" placeholder="Results" id="resultsRSP"></textarea>
+      <div id="resultsRSP"></div>
+      <!--<textarea class="textarea is-link" placeholder="Results" id="resultsRSP"></textarea>-->
+      <div class="is-inline-flex">
+        <button class="button" id="shareReasoningRSP" style="transition: ease-in-out 0.5s;">Share</button>
+        <label class="label" id="shareReasoningTextRSP" style="transition: ease-in-out 0.5s; opacity: 0; margin: auto 10px" >copied!</label>
+      </div>
+      <div class="control" style="display: none;" id="shareIDRSP">
+        <textarea class="textarea is-small" placeholder="Normal textarea" id="shareBoxRSP" autocomplete="off"></textarea>
+      </div>
+    </div>
+  </div>
+  <div id="rq" class="content-tab">
+    <div class="notification is-light">
+      <label>Work in progress!</label>
+      <!--
+      <label class="label">ABox:</label>
+      <textarea class="textarea is-link" placeholder="Define Abox" id="aboxContentQ" autocomplete="off"></textarea>
+      <label class="label">Rules:</label>
+      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContentQ" autocomplete="off"></textarea>
+      <label class="label">SPARQL Query:</label>
+      <div id="queryQ"></div>
+      <textarea class="textarea is-link" placeholder="Enter Query" id="queryQ" autocomplete="off"></textarea>
+
+      <div class="control">
+        <button class="button is-info" id="startReasoningQ">Query</button>
+      </div>
+      <label class="label">Results:</label>
+      <table class="table" id="tableContent">
+        <div id="yasre" style="background:#fff"></div>
+      </table>
+
+      <textarea class="textarea is-link" placeholder="Results" id="resultsQ" autocomplete="off"></textarea>
+      <div>
+        Execution Time: <spand id="timeResults"/>
+      </div>
+      <div class="is-inline-flex">
+        <button class="button" id="shareReasoningQ" style="transition: ease-in-out 0.5s;">Share</button>
+        <label class="label" id="shareReasoningTextQ" style="transition: ease-in-out 0.5s; opacity: 0; margin: auto 10px" >copied!</label>
+      </div>
+      <div class="control" style="display: none;" id="shareIDQ">
+        <textarea class="textarea is-small" placeholder="Normal textarea" id="shareBoxQ" autocomplete="off"></textarea>
+      </div>
+      -->
     </div>
   </div>
 </div>
@@ -117,10 +191,6 @@
 </footer>
 </body>
 <script>
-  function clicked(){
-    alert("clicked");
-    materialized();
-  }
   function openTab(evt, tabName) {
     var i, x, tablinks;
     x = document.getElementsByClassName("content-tab");
@@ -129,13 +199,14 @@
     }
     tablinks = document.getElementsByClassName("tab");
     for (i = 0; i < x.length; i++) {
-      tablinks[i].className = tablinks[i].className.replace(" is-active", "");
+      if(tablinks[i].className.includes(tabName)) {
+        tablinks[i].className += " is-active";
+      }
+      else {
+        tablinks[i].className = tablinks[i].className.replace(" is-active", "");
+      }
     }
     document.getElementById(tabName).style.display = "block";
-    if(evt){
-      evt.currentTarget.className += " is-active";
-    }
   }
-    console.log();
 </script>
 </html>
