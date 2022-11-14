@@ -29,26 +29,22 @@ let currentTs = 0;
 let rspEngine = null;
 let results = [];
 
-const bindingRegex = new RegExp(/Binding{"(.+)": "(.+)"}/);
 const urlRegex = new RegExp(/<?https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)>?/);
 
 // callback function
 function callback(val) {
-    let RegExpExecArray = [];
-    let headVars = [];
-    let temp = {};
+    const headVars = [];
+    const temp = {};
     headVars.push("timestamp (not a binding)");
-    temp["timestamp (not a binding)"] = {type:"literal",value: currentTs.toString()};
+    temp["Timestamp (not a binding)"] = {type:"literal",value: currentTs.toString()};
     for (const binding of val) {
-        RegExpExecArray = bindingRegex.exec(binding.toString());
-        headVars.push(RegExpExecArray[1]);
-        temp[RegExpExecArray[1]] = {type:urlRegex.test(RegExpExecArray[2])? "uri" : "literal",value: RegExpExecArray[2]};
+        headVars.push(binding.getVar());
+        temp[binding.getVar()] = {type:urlRegex.test(binding.getValue())? "uri" : "literal",value: binding.getValue()};
         //console.log(binding.toString())
     }
     results.push(temp)
-    var response={head:{vars:headVars},results:{bindings:results}};
+    const response={head:{vars:headVars},results:{bindings:results}};
     yasr.setResponse(response);
-    //document.getElementById('resultsRSP').value = val +"@"+currentTs+"\n" + document.getElementById('resultsRSP').value;
 }
 
 const startRSP = () => {
