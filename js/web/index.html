@@ -42,14 +42,14 @@
   <div id="reasoning" class="content-tab" >
     <div class="notification is-light">
       <label class="label">ABox:</label>
-      <textarea class="textarea is-link" placeholder="Define Abox" id="aboxContentR" autocomplete="off"></textarea>
+      <textarea class="textarea is-link tabSupport" placeholder="Define Abox" id="aboxContentR" autocomplete="off"></textarea>
       <label class="label">Rules:</label>
-      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContentR" autocomplete="off"></textarea>
+      <textarea class="textarea is-link tabSupport" placeholder="Enter Rules" id="rulesContentR" autocomplete="off"></textarea>
       <div class="control">
         <button class="button is-info" id="startReasoningR">Materialize</button>
       </div>
       <label class="label">Results:</label>
-      <textarea class="textarea is-link" placeholder="Results" id="resultsR" autocomplete="off"></textarea>
+      <textarea class="textarea is-link tabSupport" placeholder="Results" id="resultsR" autocomplete="off"></textarea>
       <div>
         Execution Time: <spand id="timeResultsR"/>
       </div>
@@ -65,7 +65,7 @@
   <div id="rsp" class="content-tab">
     <div class="notification is-light">
       <label class="label">RSP Rules:</label>
-      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContentRSP" autocomplete="off"></textarea>
+      <textarea class="textarea is-link tabSupport" placeholder="Enter Rules" id="rulesContentRSP" autocomplete="off"></textarea>
       <label class="label">Continuous SPARQL Query:</label>
       <div id="queryRSP" style="position: relative">
         <div id="disableQueryRSP" style="
@@ -82,8 +82,6 @@
         ">
         </div>
       </div>
-
-      <!--<textarea class="textarea is-link" placeholder="Enter Query" id="continousQuery"></textarea>-->
 
       <div class="field is-horizontal">
         <div class="field-label is-normal">
@@ -136,7 +134,6 @@
       </div>
       <label class="label">Results:</label>
       <div id="resultsRSP"></div>
-      <!--<textarea class="textarea is-link" placeholder="Results" id="resultsRSP"></textarea>-->
       <div class="is-inline-flex">
         <button class="button" id="shareReasoningRSP" style="transition: ease-in-out 0.5s;">Share</button>
         <label class="label" id="shareReasoningTextRSP" style="transition: ease-in-out 0.5s; opacity: 0; margin: auto 10px" >copied!</label>
@@ -149,9 +146,9 @@
   <div id="rq" class="content-tab">
     <div class="notification is-light">
       <label class="label">ABox:</label>
-      <textarea class="textarea is-link" placeholder="Define Abox" id="aboxContentQ" autocomplete="off"></textarea>
+      <textarea class="textarea is-link tabSupport" placeholder="Define Abox" id="aboxContentQ" autocomplete="off"></textarea>
       <label class="label">Rules:</label>
-      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContentQ" autocomplete="off"></textarea>
+      <textarea class="textarea is-link tabSupport" placeholder="Enter Rules" id="rulesContentQ" autocomplete="off"></textarea>
       <label class="label">SPARQL Query:</label>
       <div id="queryQ"></div>
 
@@ -228,7 +225,7 @@
     this.focus();
   };
 
-  for (const textarea of document.getElementsByTagName('textarea')) {
+  for (const textarea of document.getElementsByClassName('tabSupport')) {
     textarea.onkeydown = function(event) {
       //support tab on textarea
       if (event.keyCode == 9) { //tab was pressed
