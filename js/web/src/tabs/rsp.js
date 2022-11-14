@@ -3,7 +3,7 @@ import Yasqe from "@triply/yasqe";
 import Yasr from "@triply/yasr";
 
 const rules = "@prefix test: <http://test/>.\n@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n{?x test:isIn ?y. ?y test:isIn ?z. }=>{?x test:isIn ?z.}";
-const query = "Select * WHERE{ ?x <http://test/isIn> ?y}";
+const query = "Select * WHERE {\n\t?x <http://test/isIn> ?y.\n}";
 
 const tboxElement = document.getElementById('rulesContentRSP');
 const windowWidthElement = document.getElementById('windowWidth');
@@ -29,26 +29,27 @@ let currentTs = 0;
 let rspEngine = null;
 let results = [];
 
-const bindingRegex = new RegExp(/Binding{"(.+)": "(.+)"}/);
-const urlRegex = new RegExp(/<?https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)>?/);
+const urlRegex = new RegExp(/<?(https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*))>?/);
 
 // callback function
 function callback(val) {
-    let RegExpExecArray = [];
-    let headVars = [];
-    let temp = {};
+    const headVars = [];
+    const temp = {};
     headVars.push("timestamp (not a binding)");
-    temp["timestamp (not a binding)"] = {type:"literal",value: currentTs.toString()};
+    temp["Timestamp (not a binding)"] = {type:"literal",value: currentTs.toString()};
     for (const binding of val) {
-        RegExpExecArray = bindingRegex.exec(binding.toString());
-        headVars.push(RegExpExecArray[1]);
-        temp[RegExpExecArray[1]] = {type:urlRegex.test(RegExpExecArray[2])? "uri" : "literal",value: RegExpExecArray[2]};
-        //console.log(binding.toString())
+        headVars.push(binding.getVar());
+        const regexArray = urlRegex.exec(binding.getValue());
+        if (regexArray == null) {
+            temp[binding.getVar()] = {type:"literal",value: binding.getValue()};
+        }
+        else {
+            temp[binding.getVar()] = {type:"uri",value: regexArray[1]};
+        }
     }
     results.push(temp)
-    var response={head:{vars:headVars},results:{bindings:results}};
+    const response={head:{vars:headVars},results:{bindings:results}};
     yasr.setResponse(response);
-    //document.getElementById('resultsRSP').value = val +"@"+currentTs+"\n" + document.getElementById('resultsRSP').value;
 }
 
 const startRSP = () => {
