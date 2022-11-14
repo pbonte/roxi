@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use cfg_if::cfg_if;
 use js_sys::{Array, Function};
+use log::error;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use roxi::parser::Syntax;
@@ -34,10 +35,14 @@ pub struct RoxiReasoner{
 #[wasm_bindgen]
 impl RoxiReasoner{
     pub fn new() -> RoxiReasoner{
+        wasm_logger::init(wasm_logger::Config::default());
         RoxiReasoner{reasoner: TripleStore::new()}
     }
     pub fn add_abox(&mut self, abox:String){
-        self.reasoner.load_triples(abox.as_ref(), Syntax::NTriples);
+        match self.reasoner.load_triples(abox.as_ref(), Syntax::NTriples){
+            Err(error) => {error!("{}", error);},
+            _ => ()
+        }
     }
     pub fn add_rules(&mut self, rules:String){
         self.reasoner.load_rules(rules.as_str());
@@ -52,13 +57,21 @@ impl RoxiReasoner{
         self.reasoner.content_to_string()
     }
     pub fn query(&self, query: String)->Array {
-        self.reasoner.query(query.as_str()).into_iter().map(|row|
-            {
-                let js_bindings : Vec<JsValue> = row.into_iter().map(|b|JSBinding{var: b.var, val: b.val}.into()).collect();
-                let js_array = JsValue::from(js_bindings.into_iter().collect::<Array>());
-                js_array
+        match self.reasoner.query(query.as_str()) {
+            Ok(queryresult) => {
+                queryresult.into_iter().map(|row|
+                    {
+                        let js_bindings: Vec<JsValue> = row.into_iter().map(|b| JSBinding { var: b.var, val: b.val }.into()).collect();
+                        let js_array = JsValue::from(js_bindings.into_iter().collect::<Array>());
+                        js_array
+                    }
+                ).collect::<Array>()
+            },
+            Err(error_string) => {
+                error!("{}", error_string);
+                Array::new()
             }
-        ).collect::<Array>()
+        }
     }
 }
 
@@ -135,5 +148,15 @@ impl JSRSPEngine{
             o: triple_string.next().unwrap().trim().to_string(),};
 
         self.engine.add(triple,ts);
+    }
+}
+#[cfg(test)]
+mod test{
+    use crate::RoxiReasoner;
+
+    #[test]
+    fn test_js_load_reasoner(){
+        let mut reasoner = RoxiReasoner::new();
+        reasoner.add_abox("test".to_string());
     }
 }

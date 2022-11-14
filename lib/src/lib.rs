@@ -56,6 +56,7 @@ unsafe impl Send for TripleStore {}
 
 impl TripleStore {
     pub fn new() -> TripleStore{
+        info!("Testing");
         TripleStore{rules: Vec::new(), rules_index: RuleIndex::new(), triple_index: TripleIndex::new(), reasoner: Reasoner{ } }
     }
     pub fn from(data:&str) -> TripleStore{
@@ -69,15 +70,15 @@ impl TripleStore {
         TripleStore{rules:rules, rules_index , triple_index,reasoner: Reasoner{ } }
     }
     pub fn add(&mut self, triple: Triple){
-        trace!{"Adding triple: {:?}", self.decode_triple(&triple) }
+        trace!{"Adding triple: {:?}", Self::decode_triple(&triple) }
         self.triple_index.add(triple);
     }
     pub fn add_ref(&mut self, triple: Rc<Triple>){
-        trace!{"Adding triple: {:?}", self.decode_triple(triple.as_ref()) }
+        trace!{"Adding triple: {:?}", Self::decode_triple(triple.as_ref()) }
         self.triple_index.add_ref(triple);
     }
     pub fn remove_ref(&mut self, triple: &Triple){
-        trace!{"Removing triple: {:?}", self.decode_triple(triple) }
+        trace!{"Removing triple: {:?}", Self::decode_triple(triple) }
         self.triple_index.remove_ref(triple);
     }
     pub(crate) fn add_rules(&mut self, rules: Vec<Rule>) {
@@ -86,12 +87,7 @@ impl TripleStore {
     pub fn len(&self) -> usize{
         self.triple_index.len()
     }
-    fn decode_triple(&self, triple:  &Triple) -> String {
-        let s = Encoder::decode(&triple.s.to_encoded()).unwrap();
-        let p = Encoder::decode(&triple.p.to_encoded()).unwrap();
-        let o = Encoder::decode(&triple.o.to_encoded()).unwrap();
-        format!("{} {} {}",s,p,o)
-    }
+
     pub fn materialize(&mut self) -> Vec<Triple>{
         self.reasoner.materialize(&mut self.triple_index,&self.rules_index)
     }
@@ -132,12 +128,18 @@ impl TripleStore {
         }
         res
     }
+    pub fn decode_triple(triple:  &Triple) -> String {
+        let s = Encoder::decode(&triple.s.to_encoded()).unwrap();
+        let p = Encoder::decode(&triple.p.to_encoded()).unwrap();
+        let o = Encoder::decode(&triple.o.to_encoded()).unwrap();
+        format!("{} {} {}",s,p,o)
+    }
     pub fn content_to_string(&self) -> String{
         let content = &self.triple_index.triples;
         TripleStore::decode_triples(content)
     }
 
-    pub fn load_triples(&mut self, data: &str, syntax: Syntax) -> Result<(),&'static str>{
+    pub fn load_triples(&mut self, data: &str, syntax: Syntax) -> Result<(),String>{
         match Parser::parse_triples(data,syntax) {
             Ok(triples) =>{triples.into_iter().for_each(|t| self.triple_index.add(t));
                 Ok(())
@@ -155,10 +157,14 @@ impl TripleStore {
         }
     }
 
-    pub fn query(&self, query_str: &str) -> Vec<Vec<crate::sparql::Binding>> {
-        let query = Query::parse(query_str, None).unwrap();
-        let plan = eval_query(&query, &self.triple_index);
-        evaluate_plan_and_debug(&plan, &self.triple_index).collect()
+    pub fn query(&self, query_str: &str) -> Result<Vec<Vec<crate::sparql::Binding>>,String>  {
+        match Query::parse(query_str, None) {
+            Ok(query) => {
+                let plan = eval_query(&query, &self.triple_index);
+                Ok(evaluate_plan_and_debug(&plan, &self.triple_index).collect())
+            },
+            Err(err)=>Err(format!("Unable to parse Query: {:?}", err.to_string()))
+        }
     }
 
 }

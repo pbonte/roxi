@@ -953,9 +953,11 @@ dependencies = [
  "console_error_panic_hook",
  "getrandom",
  "js-sys",
+ "log",
  "roxi",
  "wasm-bindgen",
  "wasm-bindgen-test",
+ "wasm-logger",
  "wee_alloc",
 ]
 
@@ -1225,6 +1227,17 @@ checksum = "88ad594bf33e73cafcac2ae9062fc119d4f75f9c77e25022f91c9a64bd5b6463"
 dependencies = [
  "proc-macro2",
  "quote",
+]
+
+[[package]]
+name = "wasm-logger"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "074649a66bb306c8f2068c9016395fa65d8e08d2affcbf95acf3c24c3ab19718"
+dependencies = [
+ "log",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

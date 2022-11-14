@@ -209,7 +209,7 @@ pub struct SimpleR2R {
     pub item: TripleStore
 }
 impl R2ROperator<WindowTriple,Vec<Binding>> for SimpleR2R {
-    fn load_triples(&mut self, data: &str, syntax: Syntax) -> Result<(), &'static str> {
+    fn load_triples(&mut self, data: &str, syntax: Syntax) -> Result<(), String> {
         self.item.load_triples(data,syntax)
     }
 

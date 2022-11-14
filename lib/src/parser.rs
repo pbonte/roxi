@@ -16,7 +16,7 @@ impl Default for Syntax{
 }
 
 impl Parser {
-    pub fn parse_triples(data: &str,  syntax: Syntax) -> Result<Vec<Triple>, &'static str>{
+    pub fn parse_triples(data: &str,  syntax: Syntax) -> Result<Vec<Triple>, String>{
         if syntax == Syntax::Turtle || syntax == Syntax::NTriples {
             Self::parse_triples_helper(data,syntax)
         }else{
@@ -24,7 +24,7 @@ impl Parser {
         }
 
     }
-    fn parse_quads_helper(data: &str,  syntax: Syntax) -> Result<Vec<Triple>, &'static str> {
+    fn parse_quads_helper(data: &str,  syntax: Syntax) -> Result<Vec<Triple>, String> {
         let mut triples = Vec::new();
         let closure_quad = &mut |t: rio_api::model::Quad| {
             let s = VarOrTerm::new_term(t.subject.to_string());
@@ -42,12 +42,12 @@ impl Parser {
         };
         match result {
             Ok(_) =>Ok(triples),
-            _ => Err("Parsing error!")
+            Err(parsing_error) => Err(format!("Parsing error! {:?}", parsing_error.to_string()))
         }
 
 
     }
-    fn parse_triples_helper(data: &str,  syntax: Syntax) -> Result<Vec<Triple>, &'static str>{
+    fn parse_triples_helper(data: &str,  syntax: Syntax) -> Result<Vec<Triple>, String>{
         let mut triples = Vec::new();
         let closure_triple = &mut |t: rio_api::model::Triple| {
             let s = VarOrTerm::new_term(t.subject.to_string());
@@ -57,13 +57,13 @@ impl Parser {
             Ok(()) as Result<(), TurtleError>
         };
         let result = match syntax {
-            Syntax::NTriples =>  NTriplesParser::new(data.as_ref()).parse_all(closure_triple).unwrap(),
-            Syntax::Turtle =>  TurtleParser::new(data.as_ref(), None).parse_all(closure_triple).unwrap(),
-            _=> NTriplesParser::new(data.as_ref()).parse_all(closure_triple).unwrap(),
+            Syntax::NTriples =>  NTriplesParser::new(data.as_ref()).parse_all(closure_triple),
+            Syntax::Turtle =>  TurtleParser::new(data.as_ref(), None).parse_all(closure_triple),
+            _=> NTriplesParser::new(data.as_ref()).parse_all(closure_triple),
         };
         match result {
-            () =>Ok(triples),
-            _ => Err("Parsing error!")
+            Ok(_) =>Ok(triples),
+            Err(parsing_error) => Err(format!("Parsing error! {:?}", parsing_error.to_string()))
         }
     }
     fn parse_triple(data: &str) -> Triple {
@@ -165,6 +165,16 @@ mod test{
         let ntriples_file = "";
         let triples = Parser::parse_triples(ntriples_file,Syntax::NTriples).unwrap();
         assert_eq!(0, triples.len());
+    }
+
+    #[test]
+    fn test_error_abox_parsing(){
+        let ntriples_file = "asdfadsf";
+        match Parser::parse_triples(ntriples_file,Syntax::NTriples){
+            Ok(result)=>assert_eq!(0, 1),
+            Err(err)=>assert_eq!(0, 0)
+        }
+
     }
 
 }

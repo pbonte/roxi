@@ -1,10 +1,10 @@
-use crate::{Binding, Encoder, Parser, QueryEngine, Rule, RuleIndex, SimpleQueryEngine, TermImpl, Triple, TripleIndex, VarOrTerm};
+use crate::{Binding, Encoder, Parser, QueryEngine, Rule, RuleIndex, SimpleQueryEngine, TermImpl, Triple, TripleIndex, TripleStore, VarOrTerm};
 #[cfg(not(test))]
-use log::{info, warn,trace}; // Use log crate when building application
+use log::{info, warn,trace, debug}; // Use log crate when building application
 use std::fmt::Write;
 
 #[cfg(test)]
-use std::{println as info, println as warn, println as trace};
+use std::{println as info, println as warn, println as trace, println as debug};
 use std::cell::RefCell;
 use std::rc::Rc;
 use crate::imars_window::ImarsWindow;
@@ -18,15 +18,16 @@ impl Reasoner{
         let mut counter = 0;
         while counter < triple_index.triples.len() {
             let process_quad = triple_index.get(counter).unwrap();
-            //trace!("Processing: {:?}",decode_triple(process_quad));
+            debug!("Processing Triple: {:?}",TripleStore::decode_triple(process_quad));
             //let matching_rules = self.find_matching_rules(process_quad);
             let matching_rules = rules_index.find_match(process_quad);
             let matching_rules : Vec<Rule> = matching_rules.clone().into_iter().flat_map(|r|Self::substitute_rule(process_quad,r)).collect();
-            trace!("Found Rules: {:?}",matching_rules);
+            debug!("Matching Rules: {:?}",TripleStore::decode_rules(matching_rules.as_slice()));
+
             let new_triples = Self::infer_rule_heads(triple_index, Some(counter+1), matching_rules);
             for triple in new_triples{
                 if !triple_index.contains(&triple) {
-                   // trace!("Inferred: {:?}",self.decode_triple(&triple));
+                    debug!("Inferred: {:?}",TripleStore::decode_triple(&triple));
                     inferred.push(triple.clone());
                     triple_index.add(triple);
                 }
