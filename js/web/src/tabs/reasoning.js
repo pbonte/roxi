@@ -1,7 +1,7 @@
 import {RoxiReasoner} from "roxi";
 
 const aboxInitialContents = "<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .";
-const tboxInitialContents = "@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n {?s rdf:type test:SubClass. }=>{?s rdf:type test:SuperType.}";
+const tboxInitialContents = "@prefix test: <http://www.test.be/test#>.\n@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n{?s rdf:type test:SubClass. }=>{?s rdf:type test:SuperType.}";
 
 const abox = document.getElementById('aboxContentR');
 const tbox = document.getElementById('rulesContentR');

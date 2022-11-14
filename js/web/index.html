@@ -148,27 +148,21 @@
   </div>
   <div id="rq" class="content-tab">
     <div class="notification is-light">
-      <label>Work in progress!</label>
-      <!--
       <label class="label">ABox:</label>
       <textarea class="textarea is-link" placeholder="Define Abox" id="aboxContentQ" autocomplete="off"></textarea>
       <label class="label">Rules:</label>
       <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContentQ" autocomplete="off"></textarea>
       <label class="label">SPARQL Query:</label>
       <div id="queryQ"></div>
-      <textarea class="textarea is-link" placeholder="Enter Query" id="queryQ" autocomplete="off"></textarea>
 
       <div class="control">
         <button class="button is-info" id="startReasoningQ">Query</button>
       </div>
       <label class="label">Results:</label>
-      <table class="table" id="tableContent">
-        <div id="yasre" style="background:#fff"></div>
-      </table>
+      <div id="resultsQ"></div>
 
-      <textarea class="textarea is-link" placeholder="Results" id="resultsQ" autocomplete="off"></textarea>
       <div>
-        Execution Time: <spand id="timeResults"/>
+        Reasoning execution Time: <spand id="timeResultsQ"/>
       </div>
       <div class="is-inline-flex">
         <button class="button" id="shareReasoningQ" style="transition: ease-in-out 0.5s;">Share</button>
@@ -177,7 +171,6 @@
       <div class="control" style="display: none;" id="shareIDQ">
         <textarea class="textarea is-small" placeholder="Normal textarea" id="shareBoxQ" autocomplete="off"></textarea>
       </div>
-      -->
     </div>
   </div>
 </div>
@@ -191,6 +184,7 @@
 </footer>
 </body>
 <script>
+  //tab controlls
   function openTab(evt, tabName) {
     var i, x, tablinks;
     x = document.getElementsByClassName("content-tab");
@@ -207,6 +201,66 @@
       }
     }
     document.getElementById(tabName).style.display = "block";
+  }
+
+  //tabkey support (for better code editing)
+  HTMLTextAreaElement.prototype.getCaretPosition = function () { //return the caret position of the textarea
+    return this.selectionStart;
+  };
+  HTMLTextAreaElement.prototype.setCaretPosition = function (position) { //change the caret position of the textarea
+    this.selectionStart = position;
+    this.selectionEnd = position;
+    this.focus();
+  };
+  HTMLTextAreaElement.prototype.hasSelection = function () { //if the textarea has selection then return true
+    if (this.selectionStart == this.selectionEnd) {
+      return false;
+    } else {
+      return true;
+    }
+  };
+  HTMLTextAreaElement.prototype.getSelectedText = function () { //return the selection text
+    return this.value.substring(this.selectionStart, this.selectionEnd);
+  };
+  HTMLTextAreaElement.prototype.setSelection = function (start, end) { //change the selection area of the textarea
+    this.selectionStart = start;
+    this.selectionEnd = end;
+    this.focus();
+  };
+
+  for (const textarea of document.getElementsByTagName('textarea')) {
+    textarea.onkeydown = function(event) {
+      //support tab on textarea
+      if (event.keyCode == 9) { //tab was pressed
+        var newCaretPosition;
+        newCaretPosition = textarea.getCaretPosition() + "    ".length;
+        textarea.value = textarea.value.substring(0, textarea.getCaretPosition()) + "    " + textarea.value.substring(textarea.getCaretPosition(), textarea.value.length);
+        textarea.setCaretPosition(newCaretPosition);
+        return false;
+      }
+      if (event.keyCode == 8) { //backspace
+        if (textarea.value.substring(textarea.getCaretPosition() - 4, textarea.getCaretPosition()) == "    ") { //it's a tab space
+          var newCaretPosition;
+          newCaretPosition = textarea.getCaretPosition() - 3;
+          textarea.value = textarea.value.substring(0, textarea.getCaretPosition() - 3) + textarea.value.substring(textarea.getCaretPosition(), textarea.value.length);
+          textarea.setCaretPosition(newCaretPosition);
+        }
+      }
+      if (event.keyCode == 37) { //left arrow
+        var newCaretPosition;
+        if (textarea.value.substring(textarea.getCaretPosition() - 4, textarea.getCaretPosition()) == "    ") { //it's a tab space
+          newCaretPosition = textarea.getCaretPosition() - 3;
+          textarea.setCaretPosition(newCaretPosition);
+        }
+      }
+      if (event.keyCode == 39) { //right arrow
+        var newCaretPosition;
+        if (textarea.value.substring(textarea.getCaretPosition() + 4, textarea.getCaretPosition()) == "    ") { //it's a tab space
+          newCaretPosition = textarea.getCaretPosition() + 3;
+          textarea.setCaretPosition(newCaretPosition);
+        }
+      }
+    }
   }
 </script>
 </html>
