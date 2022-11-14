@@ -33,12 +33,14 @@ use log::{info, warn,trace}; // Use log crate when building application
 
 #[cfg(test)]
 use std::{println as info, println as warn, println as trace};
+use spargebra::Query;
 use crate::backwardchaining::BackwardChainer;
 use crate::encoding::Encoder;
 use crate::parser::{Parser,Syntax};
 
 use crate::queryengine::{QueryEngine, SimpleQueryEngine};
 use crate::reasoner::Reasoner;
+use crate::sparql::{eval_query, evaluate_plan_and_debug};
 use crate::triples::{Rule, TermImpl, Triple, VarOrTerm}; // Workaround to use prinltn! for logs.
 
 
@@ -151,6 +153,12 @@ impl TripleStore {
             },
             Err(err)=> Err(err)
         }
+    }
+
+    pub fn query(&self, query_str: &str) -> Vec<Vec<crate::sparql::Binding>> {
+        let query = Query::parse(query_str, None).unwrap();
+        let plan = eval_query(&query, &self.triple_index);
+        evaluate_plan_and_debug(&plan, &self.triple_index).collect()
     }
 
 }

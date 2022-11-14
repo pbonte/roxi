@@ -15,7 +15,7 @@ use crate::sparql::EncodedTerm::NamedNode;
 use crate::sparql::PlanNode::QuadPattern;
 use crate::tripleindex::EncodedBinding;
 use once_cell::sync::Lazy;
-
+use crate::utils::Utils;
 
 
 fn extract_triples(triple_patterns: &Vec<TriplePattern>, encoder: &mut Encoder)-> Vec<Triple>{
@@ -141,7 +141,10 @@ fn build_for_aggregate(
             function: PlanAggregationFunction::Count,
             distinct: *distinct,
         }),
-
+        AggregateExpression::Sum {expr,distinct}=>Ok(PlanAggregation{
+            function: PlanAggregationFunction::Count,
+            distinct: *distinct
+        }),
         _ => {Err("Failed".to_string())}
     }
 }
@@ -255,9 +258,18 @@ pub fn evaluate_plan<'a>(plan_node: &'a PlanNode, triple_index: &'a TripleIndex)
             println!("aggregate var: {:?}", aggregate_var.clone().into_string());
             let aggregate_encoded = Encoder::get(aggregate_var.as_str()).unwrap();
             println!("encoded aggregate var: {:?}", aggregate_encoded);
-
-            let mut grouped_accumulators =
-                    Rc::new(RefCell::new(HashMap::<Vec<usize>, CountAccumulator>::default()));
+            // let mut grouped_accumulators = match aggregate_function.function {
+            //     PlanAggregationFunction::Count =>{
+            //             Rc::new(RefCell::new(HashMap::<Vec<usize>, CountAccumulator>::default()))
+            //     },
+            //     PlanAggregationFunction::Sum =>{
+            //             Rc::new(RefCell::new(HashMap::<Vec<usize>, SumAccumulator>::default()))
+            //     },
+            //     _ =>{
+            //         Rc::new(RefCell::new(HashMap::<Vec<usize>, CountAccumulator>::default()))
+            //     }
+            // };
+            let mut grouped_accumulators =Rc::new(RefCell::new(HashMap::<Vec<usize>, CountAccumulator>::default()));
             let  local_group = grouped_accumulators.clone();
                 child.for_each(move |child_binding| {
                     println!("input bindings {:?}", child_binding);
@@ -345,6 +357,21 @@ impl Accumulator for CountAccumulator{
 impl Default for CountAccumulator{
     fn default() -> Self {
         CountAccumulator{count: 0}
+    }
+}
+#[derive(Debug)]
+pub struct SumAccumulator{
+    sum: f64
+}
+impl Accumulator for SumAccumulator{
+    fn add(&mut self, item: usize){
+        if let Some(val) = Encoder::decode(&item){
+            let val = Utils::remove_literal_tags(&val);
+            self.sum += val.parse::<f64>().unwrap();
+        }
+    }
+    fn get(&self) -> usize{
+        Encoder::add(self.sum.to_string())
     }
 }
 fn eval_expression<'a>(expression: &'a PlanExpression) ->  Box<dyn Fn(&Vec<EncodedBinding>) -> Option<EncodedTerm> + 'a>{

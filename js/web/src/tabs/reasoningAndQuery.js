@@ -1,5 +1,5 @@
 import {RoxiReasoner, JSBinding} from "roxi";
-import Yasqe from "@triply/yasqe";
+//import Yasqe from "@triply/yasqe";
 
 const aboxInitialContents = "<http://example2.com/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.test.be/test#SubClass> .";
 const tboxInitialContents = "@prefix test: <http://www.test.be/test#>.\n @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n {?s rdf:type test:SubClass. }=>{?s rdf:type test:SuperType.}";
@@ -11,13 +11,13 @@ const tboxElement = document.getElementById('rulesContentQ');
 //const queryElement = document.getElementById('queryQ');
 const reasoningShareButton = document.getElementById("shareReasoningQ");
 
-const yasqe = new Yasqe(
-    document.getElementById('queryQ')
-);
+// const yasqe = new Yasqe(
+//     document.getElementById('queryQ')
+// );
 
-aboxElement.value = aboxInitialContents;
-tboxElement.value = tboxInitialContents;
-yasqe.setValue(queryInitialContents);
+// aboxElement.value = aboxInitialContents;
+// tboxElement.value = tboxInitialContents;
+//yasqe.setValue(queryInitialContents);
 
 
 const startReasoning = () => {
@@ -25,13 +25,21 @@ const startReasoning = () => {
 
     let startTime = performance.now();
 
-    reasoner.add_abox(aboxElement.value);
-    reasoner.add_rules(tboxElement.value);
+    reasoner.add_abox(aboxInitialContents);
+    reasoner.add_rules(tboxInitialContents);
     //yasqe.getValue();
     reasoner.materialize();
 
     let endTime = performance.now();
     let difftime = endTime-startTime ;
+
+    let result = reasoner.query('Select * WHERE{?s ?p ?o}');
+    console.log(result);
+    for (const row of result){
+        for(const binding of row){
+            console.log("Var: " + binding.getVar() + " val: "+binding.getValue());
+        }
+    }
 
     /*
     var response={head:{vars:headVars},results:{bindings:results}};
@@ -75,10 +83,11 @@ const shareReasoning = () =>{
         );
 }
 
-document.getElementById("startReasoningQ").addEventListener("click", event => {
-    startReasoning();
-});
-
-reasoningShareButton.addEventListener("click", event => {
-    shareReasoning();
-});
+// document.getElementById("startReasoningQ").addEventListener("click", event => {
+//     startReasoning();
+// });
+//
+// reasoningShareButton.addEventListener("click", event => {
+//     shareReasoning();
+// });
+startReasoning();

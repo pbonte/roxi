@@ -1,6 +1,6 @@
 require("./tabs/reasoning");
 require("./tabs/rsp");
-//require("./tabs/reasoningAndQuery");
+require("./tabs/reasoningAndQuery");
 
 function gup( name, url ) {
     if (!url) url = location.href;

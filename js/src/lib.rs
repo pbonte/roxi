@@ -51,6 +51,15 @@ impl RoxiReasoner{
     pub fn get_abox_dump(& self)->String{
         self.reasoner.content_to_string()
     }
+    pub fn query(&self, query: String)->Array {
+        self.reasoner.query(query.as_str()).into_iter().map(|row|
+            {
+                let js_bindings : Vec<JsValue> = row.into_iter().map(|b|JSBinding{var: b.var, val: b.val}.into()).collect();
+                let js_array = JsValue::from(js_bindings.into_iter().collect::<Array>());
+                js_array
+            }
+        ).collect::<Array>()
+    }
 }
 
 #[wasm_bindgen]
