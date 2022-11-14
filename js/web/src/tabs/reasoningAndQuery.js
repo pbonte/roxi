@@ -9,6 +9,7 @@ const queryInitialContents = "SELECT * WHERE {\n\t?s ?p ?o.\n}";
 
 const aboxElement = document.getElementById('aboxContentQ');
 const tboxElement = document.getElementById('rulesContentQ');
+const reasoningSwitch = document.getElementById("reasoningSwitchQ");
 const reasoningShareButton = document.getElementById("shareReasoningQ");
 
 const yasqe = new Yasqe(
@@ -21,6 +22,7 @@ const yasr = new Yasr(
 
 yasr.setResponse({head:{vars:[""]},results:{bindings:[{"":{type:"literal",value: ""}}]}});
 
+reasoningSwitch.checked = true;
 aboxElement.value = aboxInitialContents;
 tboxElement.value = tboxInitialContents;
 yasqe.setValue(queryInitialContents);
@@ -34,7 +36,10 @@ const startReasoning = () => {
 
     reasoner.add_abox(aboxElement.value);
     reasoner.add_rules(tboxElement.value);
-    reasoner.materialize();
+
+    if (reasoningSwitch.checked) {
+        reasoner.materialize();
+    }
 
     const endTime = performance.now();
     const difftime = endTime-startTime ;
