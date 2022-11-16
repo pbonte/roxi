@@ -35,7 +35,7 @@ const urlRegex = new RegExp(/<?(https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}
 function callback(val) {
     const headVars = [];
     const temp = {};
-    headVars.push("timestamp (not a binding)");
+    headVars.push("Timestamp (not a binding)");
     temp["Timestamp (not a binding)"] = {type:"literal",value: currentTs.toString()};
     for (const binding of val) {
         headVars.push(binding.getVar());
