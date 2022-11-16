@@ -130,7 +130,10 @@ impl  <I, O> RSPEngine<I, O> where O: Clone + Hash + Eq + Send +'static, I: Eq +
         let mut window = CSPARQLWindow::new(width, slide, report, tick);
         let mut store = r2r;
 
-        store.load_triples(triples, syntax);
+        match store.load_triples(triples, syntax){
+            Err(parsing_error)=>error!("Unable to load ABox: {:?}", parsing_error.to_string()),
+            _ => ()
+        }
         store.load_rules(rules);
         let query = match Query::parse(query_str, None){
             Ok(parsed_query) => parsed_query,
@@ -217,7 +220,9 @@ pub struct SimpleR2R {
 }
 impl R2ROperator<WindowTriple,Vec<Binding>> for SimpleR2R {
     fn load_triples(&mut self, data: &str, syntax: Syntax) -> Result<(), String> {
-        self.item.load_triples(data,syntax)
+        let reseult = self.item.load_triples(data,syntax);
+        println!("Store size after loading: {:?}", self.item.triple_index.len());
+        reseult
     }
 
     fn load_rules(&mut self, data: &str) -> Result<(), &'static str> {
@@ -225,6 +230,8 @@ impl R2ROperator<WindowTriple,Vec<Binding>> for SimpleR2R {
     }
 
     fn add(&mut self, data: WindowTriple) {
+        println!("Store size: {:?}", self.item.triple_index.len());
+
         let encoded_triple = Triple::from(data.s,data.p,data.o);
         self.item.add(encoded_triple);
     }
@@ -236,6 +243,7 @@ impl R2ROperator<WindowTriple,Vec<Binding>> for SimpleR2R {
     }
 
     fn materialize(&mut self) -> Vec<WindowTriple>{
+        println!("Store size: {:?}", self.item.triple_index.len());
         let inferred = self.item.materialize();
         inferred.into_iter().map(|t|WindowTriple{s:Encoder::decode(&t.s.to_encoded()).unwrap().to_string(),
         p:Encoder::decode(&t.p.to_encoded()).unwrap().to_string(),
@@ -360,6 +368,37 @@ mod tests{
             .build();
         for i in 0..20 {
             let triple = WindowTriple{s:format!("<http://test/{}>", i), p:"<http://test/isIn>".to_string(),o: format!("<http://test/{}>", i+1)};
+
+            engine.add(triple,i);
+        }
+        engine.stop();
+
+    }
+
+    #[test]
+    #[ignore]
+    fn test_static_abox(){
+        let ntriples_file = "<http://test/sensor1> <http://test/hasLocation> <http://test/location1>.";
+        let rules = "@prefix test: <http://test/>.
+ @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+ {?x test:madeBy ?y. ?y test:hasLocation ?z. }=>{?x test:madeIn ?z.}";
+        let function = Box::new(|r|println!("Bindings: {:?}",r));
+        let result_consumer = ResultConsumer{function: Arc::new(function)};
+        let r2r = Box::new(SimpleR2R {item: TripleStore::new()});
+        let mut engine = RSPBuilder::new(10,2)
+            .add_tick(Tick::TimeDriven)
+            .add_report_strategy(ReportStrategy::OnWindowClose)
+            .add_triples(ntriples_file)
+            .add_syntax(Syntax::NTriples)
+            .add_rules(rules)
+            .add_query("Select * WHERE{ ?x <http://test/madeIn> ?y}")
+            .add_consumer(result_consumer)
+            .add_r2r(r2r)
+            .add_r2s(StreamOperator::RSTREAM)
+            .set_operation_mode(OperationMode::SingleThread)
+            .build();
+        for i in 0..20 {
+            let triple = WindowTriple{s:format!("<http://test/{}>", i), p:"<http://test/madeBy>".to_string(),o: "<http://test/sensor1>".to_string()};
 
             engine.add(triple,i);
         }
