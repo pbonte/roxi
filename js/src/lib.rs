@@ -39,7 +39,7 @@ impl RoxiReasoner{
         RoxiReasoner{reasoner: TripleStore::new()}
     }
     pub fn add_abox(&mut self, abox:String){
-        match self.reasoner.load_triples(abox.as_ref(), Syntax::NTriples){
+        match self.reasoner.load_triples(abox.as_ref(), Syntax::Turtle){
             Err(error) => {error!("{}", error);},
             _ => ()
         }

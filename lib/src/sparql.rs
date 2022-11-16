@@ -598,4 +598,16 @@ mod tests{
 
         assert_eq!(results, iterator.collect::<Vec<Vec<Binding>>>());
     }
+
+    #[test]
+    fn test_syntactic_sugar_rdf_type() {
+        let index = prepare_test();
+        let query_str = "Select * WHERE {  ?s a ?val.  }";
+        let query = Query::parse(query_str, None).unwrap();
+        println!("{:?}", query);
+        let plan = eval_query(&query, &index);
+        let iterator = evaluate_plan_and_debug(&plan, &index);
+
+        assert_eq!(2, iterator.collect::<Vec<Vec<Binding>>>().len());
+    }
 }

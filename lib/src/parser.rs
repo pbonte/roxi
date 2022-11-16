@@ -176,5 +176,14 @@ mod test{
         }
 
     }
+    #[test]
+    fn test_syntactic_sugar_rdf_type(){
+        let ntriples_file = "<http://example2.com/a> a <http://www.test.be/test#SubClass> .";
+        match Parser::parse_triples(ntriples_file,Syntax::Turtle){
+            Ok(result)=>assert_eq!(1, result.len()),
+            Err(err)=>assert_eq!(0, 1)
+        }
+
+    }
 
 }
