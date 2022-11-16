@@ -2,9 +2,9 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::sync::mpsc::Receiver;
 use std::thread;
 #[cfg(not(test))]
-use log::{info, warn, trace, debug}; // Use log crate when building application
+use log::{info, warn, trace, debug, error}; // Use log crate when building application
 #[cfg(test)]
-use std::{println as info, println as warn, println as trace, println as debug};
+use std::{println as info, println as warn, println as trace, println as debug, println as error};
 use std::fmt::Debug;
 use std::hash::Hash;
 use spargebra::Query;
@@ -132,7 +132,14 @@ impl  <I, O> RSPEngine<I, O> where O: Clone + Hash + Eq + Send +'static, I: Eq +
 
         store.load_triples(triples, syntax);
         store.load_rules(rules);
-        let query = Query::parse(query_str, None).unwrap();
+        let query = match Query::parse(query_str, None){
+            Ok(parsed_query) => parsed_query,
+            Err(err)=>{
+                error!("Unable to parse query! {:?}", err.to_string());
+                error!("Using Select * WHERE{{?s ?p ?o}} instead");
+                Query::parse("Select * WHERE{?s ?p ?o}", None).unwrap()
+            }
+        };
         let mut engine = RSPEngine{s2r: window, r2r:  Arc::new(Mutex::new(store)), r2s_consumer: result_consumer, r2s_operator: Arc::new(Mutex::new(Relation2StreamOperator::new(r2s,0)))};
         match operation_mode {
             OperationMode::SingleThread => {
