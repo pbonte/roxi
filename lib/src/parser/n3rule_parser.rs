@@ -103,7 +103,15 @@ pub fn parse(parse_string: &str) -> Result<Vec<ReasonerRule>,&'static str>{
                                     }
                                 },
                                 Rule::Head => {
-                                    head = parse_tp(sub_rule.into_inner().next().unwrap().into_inner(), &prefix_mapper);
+                                    for head_item in sub_rule.into_inner(){
+                                        match head_item.as_rule(){
+                                            Rule::TP =>{ head = parse_tp(head_item.into_inner(), &prefix_mapper);},
+                                            _ => ()
+                                        }
+
+
+                                    }
+
                                 },
 
                                 Rule::EOI => (),
@@ -126,6 +134,7 @@ pub fn parse(parse_string: &str) -> Result<Vec<ReasonerRule>,&'static str>{
 
 #[cfg(test)]
 mod tests {
+    use crate::TripleStore;
     use super::*;
     #[test]
     fn parse_tp() {
@@ -158,6 +167,16 @@ mod tests {
         let rules = parse("").unwrap();
         println!("{:?}",rules);
         assert_eq!(0,rules.len());
-
     }
+    #[test]
+    fn parse_rule_with_multiple_spaces() {
+        let input_rule = "{  ?VaRr0   <http://test.be/pieter>   ?lastVar.\n ?VaRr0 <http://www.w3.org/2000/10/swap/log#type> ?lastVar.\n}=>{ ?VaRr0  <ssn:HasValue>  ?lastVar .\n}.\n";
+        let rules = parse(input_rule).unwrap();
+
+        let rule = rules.get(0).unwrap();
+        let str_rule = TripleStore::decode_rule(rule);
+        println!("{:?}",str_rule);
+        assert_eq!(input_rule.replace("?","").replace(" ",""), str_rule.replace(" ",""));
+    }
+
 }

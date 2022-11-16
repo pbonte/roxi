@@ -56,7 +56,6 @@ unsafe impl Send for TripleStore {}
 
 impl TripleStore {
     pub fn new() -> TripleStore{
-        info!("Testing");
         TripleStore{rules: Vec::new(), rules_index: RuleIndex::new(), triple_index: TripleIndex::new(), reasoner: Reasoner{ } }
     }
     pub fn from(data:&str) -> TripleStore{
