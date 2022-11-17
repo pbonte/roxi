@@ -64,6 +64,27 @@
 /******/ 					"__wbindgen_object_clone_ref": function(p0i32) {
 /******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbindgen_object_clone_ref"](p0i32);
 /******/ 					},
+/******/ 					"__wbindgen_string_new": function(p0i32,p1i32) {
+/******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbindgen_string_new"](p0i32,p1i32);
+/******/ 					},
+/******/ 					"__wbg_debug_37c3d403ef2fe45e": function(p0i32,p1i32,p2i32,p3i32) {
+/******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_debug_37c3d403ef2fe45e"](p0i32,p1i32,p2i32,p3i32);
+/******/ 					},
+/******/ 					"__wbg_error_fef758d6120a6335": function(p0i32) {
+/******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_error_fef758d6120a6335"](p0i32);
+/******/ 					},
+/******/ 					"__wbg_error_0a9eaa65ad0ac370": function(p0i32,p1i32,p2i32,p3i32) {
+/******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_error_0a9eaa65ad0ac370"](p0i32,p1i32,p2i32,p3i32);
+/******/ 					},
+/******/ 					"__wbg_info_7a618942e19d5ae9": function(p0i32,p1i32,p2i32,p3i32) {
+/******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_info_7a618942e19d5ae9"](p0i32,p1i32,p2i32,p3i32);
+/******/ 					},
+/******/ 					"__wbg_log_fc5fef16dc6ffacf": function(p0i32,p1i32,p2i32,p3i32) {
+/******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_log_fc5fef16dc6ffacf"](p0i32,p1i32,p2i32,p3i32);
+/******/ 					},
+/******/ 					"__wbg_warn_b524823256513407": function(p0i32,p1i32,p2i32,p3i32) {
+/******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_warn_b524823256513407"](p0i32,p1i32,p2i32,p3i32);
+/******/ 					},
 /******/ 					"__wbg_randomFillSync_2f6909f8132a175d": function(p0i32,p1i32,p2i32) {
 /******/ 						return installedModules["../pkg/roxi_js_bg.js"].exports["__wbg_randomFillSync_2f6909f8132a175d"](p0i32,p1i32,p2i32);
 /******/ 					},
@@ -252,7 +273,7 @@
 /******/ 				promises.push(installedWasmModuleData);
 /******/ 			else {
 /******/ 				var importObject = wasmImportObjects[wasmModuleId]();
-/******/ 				var req = fetch(__webpack_require__.p + "" + {"../pkg/roxi_js_bg.wasm":"27165cf271ab18793319"}[wasmModuleId] + ".module.wasm");
+/******/ 				var req = fetch(__webpack_require__.p + "" + {"../pkg/roxi_js_bg.wasm":"dabc5a981d33955a4a8e"}[wasmModuleId] + ".module.wasm");
 /******/ 				var promise;
 /******/ 				if(importObject instanceof Promise && typeof WebAssembly.compileStreaming === 'function') {
 /******/ 					promise = Promise.all([WebAssembly.compileStreaming(req), importObject]).then(function(items) {
@@ -353,7 +374,7 @@
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-eval("// A dependency graph that contains any wasm must all be imported\n// asynchronously. This `bootstrap.js` file does the single async import, so\n// that no one else needs to worry about it again.\n__webpack_require__.e(/*! import() */ 0).then(__webpack_require__.bind(null, /*! ./index.js */ \"./index.js\"))\n  .catch(e => console.error(\"Error importing `index.js`:\", e));\n\n\n\n\n//# sourceURL=webpack:///./bootstrap.js?");
+eval("// A dependency graph that contains any wasm must all be imported\n// asynchronously. This `bootstrap.js` file does the single async import, so\n// that no one else needs to worry about it again.\nPromise.all(/*! import() */[__webpack_require__.e(1), __webpack_require__.e(0)]).then(__webpack_require__.t.bind(null, /*! ./src/index */ \"./src/index.js\", 7))\n  .catch(e => console.error(\"Error importing `index.js`:\", e));\n\n\n\n\n//# sourceURL=webpack:///./bootstrap.js?");
 
 /***/ })
 

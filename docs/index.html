@@ -4,10 +4,85 @@
   <meta charset="utf-8">
   <title>RoXi Reasoner</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+  <link href="https://unpkg.com/@triply/yasgui/build/yasgui.min.css" rel="stylesheet" type="text/css" />
+
+  <style>
+    .yasqe .yasqe_buttons {
+      display: none ;
+    }
+    .yasqe .yasqe_tooltip {
+      background: #fff;
+      color: #000;
+    }
+
+    /* The switch - the box around the slider */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+
+    /* Hide default HTML checkbox */
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    /* The slider */
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      -webkit-transition: .4s;
+      transition: .4s;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      -webkit-transition: .4s;
+      transition: .4s;
+    }
+
+    input:checked + .slider {
+      background-color: #3e8ed0;
+    }
+
+    input:focus + .slider {
+      box-shadow: 0 0 1px #3e8ed0;
+    }
+
+    input:checked + .slider:before {
+      -webkit-transform: translateX(26px);
+      -ms-transform: translateX(26px);
+      transform: translateX(26px);
+    }
+
+    /* Rounded sliders */
+    .slider.round {
+      border-radius: 34px;
+    }
+
+    .slider.round:before {
+      border-radius: 50%;
+    }
+  </style>
+
 </head>
 <body>
 <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
-<script src="./bootstrap.js"></script>
+<script defer src="./bootstrap.js"></script>
 
 <section class="hero is-small is-info">
   <div class="hero-body">
@@ -21,37 +96,55 @@
 </section>
 <div class="tabs">
   <ul>
-    <li class="tab is-active" onclick="openTab(event,'reasoning')"><a>Reasoning</a></li>
-    <li class="tab" onclick="openTab(event,'rsp')"><a>RDF Stream Processing</a></li>
+    <li class="tab reasoning" onclick="openTab(event,'reasoning')"><a>Reasoning</a></li>
+    <li class="tab rsp" onclick="openTab(event,'rsp')"><a>RDF Stream Processing</a></li>
+    <li class="tab rq" onclick="openTab(event,'rq')"><a>Reasoning and Querying</a></li>
   </ul>
 </div>
 <div class="container">
   <div id="reasoning" class="content-tab" >
     <div class="notification is-light">
       <label class="label">ABox:</label>
-      <textarea class="textarea is-link" placeholder="Define Abox" id="aboxContent"></textarea>
+      <textarea class="textarea is-link tabSupport" placeholder="Define Abox" id="aboxContentR" autocomplete="off"></textarea>
       <label class="label">Rules:</label>
-      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContent"></textarea>
+      <textarea class="textarea is-link tabSupport" placeholder="Enter Rules" id="rulesContentR" autocomplete="off"></textarea>
       <div class="control">
-        <button class="button is-info" id="startReasoning">Materialize</button>
+        <button class="button is-info" id="startReasoningR">Materialize</button>
       </div>
       <label class="label">Results:</label>
-      <textarea class="textarea is-link" placeholder="Results" id="results"></textarea>
+      <textarea class="textarea is-link tabSupport" placeholder="Results" id="resultsR" autocomplete="off"></textarea>
       <div>
-        Execution Time: <spand id="timeResults"/>
+        Execution Time: <spand id="timeResultsR"/>
       </div>
-      <button class="button" id="shareReasoning">Share</button>
-      <div class="control" style="display: none;" id="shareID">
-        <textarea class="textarea is-small" placeholder="Normal textarea" id="shareBox"></textarea>
+      <div class="is-inline-flex">
+        <button class="button" id="shareReasoningR" style="transition: ease-in-out 0.5s;">Share</button>
+        <label class="label" id="shareReasoningTextR" style="transition: ease-in-out 0.5s; opacity: 0; margin: auto 10px" >copied!</label>
+      </div>
+      <div class="control" style="display: none;" id="shareIDR">
+        <textarea class="textarea is-small" placeholder="Normal textarea" id="shareBoxR" autocomplete="off"></textarea>
       </div>
     </div>
   </div>
-  <div id="rsp" class="content-tab" style="display: none;">
+  <div id="rsp" class="content-tab">
     <div class="notification is-light">
       <label class="label">RSP Rules:</label>
-      <textarea class="textarea is-link" placeholder="Enter Rules" id="rulesContentRSP"></textarea>
+      <textarea class="textarea is-link tabSupport" placeholder="Enter Rules" id="rulesContentRSP" autocomplete="off"></textarea>
       <label class="label">Continuous SPARQL Query:</label>
-      <textarea class="textarea is-link" placeholder="Enter Query" id="continousQuery"></textarea>
+      <div id="queryRSP" style="position: relative">
+        <div id="disableQueryRSP" style="
+          cursor: not-allowed;
+          display: none;
+          position: absolute;
+          width: 100%;
+          height: calc(100% - 10px);
+          background: black;
+          left: 0px;
+          top: 0px;
+          opacity: 0.035;
+          z-index: 10;
+        ">
+        </div>
+      </div>
 
       <div class="field is-horizontal">
         <div class="field-label is-normal">
@@ -60,7 +153,7 @@
         <div class="field-body">
           <div class="field">
             <p class="control">
-              <input class="input" type="test" id="windowWidth" value="10">
+              <input class="input" type="test" id="windowWidth" value="10" autocomplete="off">
             </p>
           </div>
         </div>
@@ -70,7 +163,7 @@
         <div class="field-body">
           <div class="field">
             <p class="control">
-              <input class="input" type="text" id="windowSlide" value="2">
+              <input class="input" type="text" id="windowSlide" value="2" autocomplete="off">
             </p>
           </div>
         </div>
@@ -83,7 +176,7 @@
         <div class="field-body">
           <div class="field">
             <p class="control">
-              <input class="input" type="test" id="eventID" value="<http://test/0> <http://test/isIn> <http://test/1>.">
+              <input class="input" type="test" id="eventID" value="<http://test/0> <http://test/isIn> <http://test/1>." autocomplete="off">
             </p>
           </div>
         </div>
@@ -93,7 +186,7 @@
         <div class="field-body">
           <div class="field">
             <p class="control">
-              <input class="input" type="text" id="timestamp" value="0">
+              <input class="input" type="text" id="timestamp" value="0" autocomplete="off">
             </p>
           </div>
         </div>
@@ -103,7 +196,51 @@
         <button class="button is-info" id="startRSP">Send</button>
       </div>
       <label class="label">Results:</label>
-      <textarea class="textarea is-link" placeholder="Results" id="resultsRSP"></textarea>
+      <div id="resultsRSP"></div>
+      <div class="is-inline-flex">
+        <button class="button" id="shareReasoningRSP" style="transition: ease-in-out 0.5s;">Share</button>
+        <label class="label" id="shareReasoningTextRSP" style="transition: ease-in-out 0.5s; opacity: 0; margin: auto 10px" >copied!</label>
+      </div>
+      <div class="control" style="display: none;" id="shareIDRSP">
+        <textarea class="textarea is-small" placeholder="Normal textarea" id="shareBoxRSP" autocomplete="off"></textarea>
+      </div>
+    </div>
+  </div>
+  <div id="rq" class="content-tab">
+    <div class="notification is-light">
+      <label class="label">ABox:</label>
+      <textarea class="textarea is-link tabSupport" placeholder="Define Abox" id="aboxContentQ" autocomplete="off"></textarea>
+      <label class="label">Rules:</label>
+      <textarea class="textarea is-link tabSupport" placeholder="Enter Rules" id="rulesContentQ" autocomplete="off"></textarea>
+      <label class="label">SPARQL Query:</label>
+      <div id="queryQ"></div>
+
+      <label class="label">Reasoning:</label>
+      <div style="display: flex">
+        <label style="margin: auto 10px">Reasoning disabled</label>
+        <label class="switch">
+          <input id="reasoningSwitchQ" type="checkbox">
+          <span class="slider round"></span>
+        </label>
+        <label style="margin: auto 10px">Reasoning enabled</label>
+      </div>
+
+      <div class="control">
+        <button class="button is-info" id="startReasoningQ">Query</button>
+      </div>
+      <label class="label">Results:</label>
+      <div id="resultsQ"></div>
+
+      <div>
+        Reasoning execution Time: <spand id="timeResultsQ"/>
+      </div>
+      <div class="is-inline-flex">
+        <button class="button" id="shareReasoningQ" style="transition: ease-in-out 0.5s;">Share</button>
+        <label class="label" id="shareReasoningTextQ" style="transition: ease-in-out 0.5s; opacity: 0; margin: auto 10px" >copied!</label>
+      </div>
+      <div class="control" style="display: none;" id="shareIDQ">
+        <textarea class="textarea is-small" placeholder="Normal textarea" id="shareBoxQ" autocomplete="off"></textarea>
+      </div>
     </div>
   </div>
 </div>
@@ -117,10 +254,7 @@
 </footer>
 </body>
 <script>
-  function clicked(){
-    alert("clicked");
-    materialized();
-  }
+  //tab controlls
   function openTab(evt, tabName) {
     var i, x, tablinks;
     x = document.getElementsByClassName("content-tab");
@@ -129,13 +263,74 @@
     }
     tablinks = document.getElementsByClassName("tab");
     for (i = 0; i < x.length; i++) {
-      tablinks[i].className = tablinks[i].className.replace(" is-active", "");
+      if(tablinks[i].className.includes(tabName)) {
+        tablinks[i].className += " is-active";
+      }
+      else {
+        tablinks[i].className = tablinks[i].className.replace(" is-active", "");
+      }
     }
     document.getElementById(tabName).style.display = "block";
-    if(evt){
-      evt.currentTarget.className += " is-active";
+  }
+
+  //tabkey support (for better code editing)
+  HTMLTextAreaElement.prototype.getCaretPosition = function () { //return the caret position of the textarea
+    return this.selectionStart;
+  };
+  HTMLTextAreaElement.prototype.setCaretPosition = function (position) { //change the caret position of the textarea
+    this.selectionStart = position;
+    this.selectionEnd = position;
+    this.focus();
+  };
+  HTMLTextAreaElement.prototype.hasSelection = function () { //if the textarea has selection then return true
+    if (this.selectionStart == this.selectionEnd) {
+      return false;
+    } else {
+      return true;
+    }
+  };
+  HTMLTextAreaElement.prototype.getSelectedText = function () { //return the selection text
+    return this.value.substring(this.selectionStart, this.selectionEnd);
+  };
+  HTMLTextAreaElement.prototype.setSelection = function (start, end) { //change the selection area of the textarea
+    this.selectionStart = start;
+    this.selectionEnd = end;
+    this.focus();
+  };
+
+  for (const textarea of document.getElementsByClassName('tabSupport')) {
+    textarea.onkeydown = function(event) {
+      //support tab on textarea
+      if (event.keyCode == 9) { //tab was pressed
+        var newCaretPosition;
+        newCaretPosition = textarea.getCaretPosition() + "    ".length;
+        textarea.value = textarea.value.substring(0, textarea.getCaretPosition()) + "    " + textarea.value.substring(textarea.getCaretPosition(), textarea.value.length);
+        textarea.setCaretPosition(newCaretPosition);
+        return false;
+      }
+      if (event.keyCode == 8) { //backspace
+        if (textarea.value.substring(textarea.getCaretPosition() - 4, textarea.getCaretPosition()) == "    ") { //it's a tab space
+          var newCaretPosition;
+          newCaretPosition = textarea.getCaretPosition() - 3;
+          textarea.value = textarea.value.substring(0, textarea.getCaretPosition() - 3) + textarea.value.substring(textarea.getCaretPosition(), textarea.value.length);
+          textarea.setCaretPosition(newCaretPosition);
+        }
+      }
+      if (event.keyCode == 37) { //left arrow
+        var newCaretPosition;
+        if (textarea.value.substring(textarea.getCaretPosition() - 4, textarea.getCaretPosition()) == "    ") { //it's a tab space
+          newCaretPosition = textarea.getCaretPosition() - 3;
+          textarea.setCaretPosition(newCaretPosition);
+        }
+      }
+      if (event.keyCode == 39) { //right arrow
+        var newCaretPosition;
+        if (textarea.value.substring(textarea.getCaretPosition() + 4, textarea.getCaretPosition()) == "    ") { //it's a tab space
+          newCaretPosition = textarea.getCaretPosition() + 3;
+          textarea.setCaretPosition(newCaretPosition);
+        }
+      }
     }
   }
-    console.log();
 </script>
 </html>
