@@ -18,6 +18,10 @@ impl PrefixMapper{
         self.prefixes.insert(prefix,full_name);
     }
     pub fn expand(&self, prefixed:String) -> String{
+        if prefixed.eq("a") {
+            return "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>".to_string();
+        }
+
         let mut split = prefixed.split(":");
         let vec: Vec<&str> = split.collect();
         if vec.len() >= 2 {
@@ -179,4 +183,16 @@ mod tests {
         assert_eq!(input_rule.replace("?","").replace(" ",""), str_rule.replace(" ",""));
     }
 
+    #[test]
+    fn parse_rule_with_a_syntactic_sugar() {
+        let input_rule = "{?VaRr0 <http://test.be/pieter> ?lastVar.\n ?VaRr0 a ?lastVar.\n}=>{?VaRr0 <ssn:HasValue> ?lastVar.\n}.\n";
+        let expected_rule = "{?VaRr0 <http://test.be/pieter> ?lastVar.\n?VaRr0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?lastVar.\n}=>{?VaRr0 <ssn:HasValue> ?lastVar.\n}.\n";
+
+        let rules = parse(input_rule).unwrap();
+
+        let rule = rules.get(0).unwrap();
+        let str_rule = TripleStore::decode_rule(rule);
+        println!("{:?}",str_rule);
+        assert_eq!(expected_rule.replace("?",""), str_rule);
+    }
 }
