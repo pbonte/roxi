@@ -12,7 +12,7 @@ const tboxElement = document.getElementById('rulesContentQ');
 const reasoningSwitch = document.getElementById("reasoningSwitchQ");
 const reasoningShareButton = document.getElementById("shareReasoningQ");
 
-const yasqe = new Yasqe(
+export const yasqeQ = new Yasqe(
     document.getElementById('queryQ')
 );
 
@@ -25,7 +25,7 @@ yasr.setResponse({head:{vars:[""]},results:{bindings:[{"":{type:"literal",value:
 reasoningSwitch.checked = true;
 aboxElement.value = aboxInitialContents;
 tboxElement.value = tboxInitialContents;
-yasqe.setValue(queryInitialContents);
+yasqeQ.setValue(queryInitialContents);
 
 const urlRegex = new RegExp(/<?(https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*))>?/);
 
@@ -44,7 +44,7 @@ const startReasoning = () => {
     const endTime = performance.now();
     const difftime = endTime-startTime ;
 
-    const result = reasoner.query(yasqe.getValue().toString());
+    const result = reasoner.query(yasqeQ.getValue().toString());
     const results = [];
     let temp = {};
     let headVars = [];
@@ -73,7 +73,7 @@ const shareReasoning = () =>{
     let host = window.location.href.split('?')[0];
     let encodedAbox = encodeURIComponent(aboxElement.value);
     let encodedRules = encodeURIComponent(tboxElement.value);
-    let encodedQuery = encodeURIComponent(yasqe.getValue());
+    let encodedQuery = encodeURIComponent(yasqeQ.getValue());
 
     let result = host +'?view=rq&abox='+encodedAbox+'&rules='+encodedRules+'&query='+encodedQuery;
 

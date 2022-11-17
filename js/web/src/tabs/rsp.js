@@ -13,7 +13,7 @@ const timestampElement = document.getElementById('timestamp');
 const reasoningShareButton = document.getElementById("shareReasoningRSP");
 const rspButton = document.getElementById("startRSP");
 
-const yasqe = new Yasqe(
+export const yasqeRSP = new Yasqe(
     document.getElementById('queryRSP')
 );
 
@@ -24,7 +24,7 @@ const yasr = new Yasr(
 yasr.setResponse({head:{vars:[""]},results:{bindings:[{"":{type:"literal",value: ""}}]}});
 
 tboxElement.value = rules;
-yasqe.setValue(query);
+yasqeRSP.setValue(query);
 let currentTs = 0;
 let rspEngine = null;
 let results = [];
@@ -59,7 +59,7 @@ const startRSP = () => {
         tboxElement.setAttribute('disabled', '');
 
         let abox = "";
-        let query = yasqe.getValue();
+        let query = yasqeRSP.getValue();
         document.getElementById("disableQueryRSP").style.display = "block";
 
         let width = windowWidthElement.value;
@@ -80,7 +80,7 @@ const startRSP = () => {
 const shareReasoning = () =>{
     let host = window.location.href.split('?')[0];
     let encodedRules = encodeURIComponent(tboxElement.value);
-    let encodedQuery = encodeURIComponent(yasqe.getValue());
+    let encodedQuery = encodeURIComponent(yasqeRSP.getValue());
     let encodedWindowWidth = encodeURIComponent(windowWidthElement.value);
     let encodedWindowSlide = encodeURIComponent(windowSlideElement.value);
     let encodedEventID = encodeURIComponent(eventIDElement.value);
