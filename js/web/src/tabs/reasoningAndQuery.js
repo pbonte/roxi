@@ -47,12 +47,11 @@ const startReasoning = () => {
     const result = reasoner.query(yasqeQ.getValue().toString());
     const results = [];
     let temp = {};
-    let headVars = [];
+    let headVars = new Map();
     for (const row of result){
-        headVars = [];
         temp = {};
         for(const binding of row){
-            headVars.push(binding.getVar());
+            headVars.set(binding.getVar(), binding.getVar());
             const regexArray = urlRegex.exec(binding.getValue());
             if (regexArray == null) {
                 temp[binding.getVar()] = {type:"literal",value: binding.getValue()};
@@ -63,8 +62,7 @@ const startReasoning = () => {
         }
         results.push(temp)
     }
-    const response={head:{vars:headVars},results:{bindings:results}};
-    console.log(response);
+    const response={head:{vars:Array.from(headVars.keys())},results:{bindings:results}};
     yasr.setResponse(response);
     document.getElementById('timeResultsQ').innerHTML = difftime + " ms";
 };
