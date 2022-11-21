@@ -13,7 +13,7 @@ const timestampElement = document.getElementById('timestamp');
 const reasoningShareButton = document.getElementById("shareReasoningRSP");
 const rspButton = document.getElementById("startRSP");
 
-const yasqe = new Yasqe(
+export const yasqeRSP = new Yasqe(
     document.getElementById('queryRSP')
 );
 
@@ -24,7 +24,7 @@ const yasr = new Yasr(
 yasr.setResponse({head:{vars:[""]},results:{bindings:[{"":{type:"literal",value: ""}}]}});
 
 tboxElement.value = rules;
-yasqe.setValue(query);
+yasqeRSP.setValue(query);
 let currentTs = 0;
 let rspEngine = null;
 let results = [];
@@ -33,12 +33,12 @@ const urlRegex = new RegExp(/<?(https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}
 
 // callback function
 function callback(val) {
-    const headVars = [];
+    let headVars = new Map();
     const temp = {};
-    headVars.push("Timestamp (not a binding)");
+    headVars.set("Timestamp (not a binding)", "Timestamp (not a binding)");
     temp["Timestamp (not a binding)"] = {type:"literal",value: currentTs.toString()};
     for (const binding of val) {
-        headVars.push(binding.getVar());
+        headVars.set(binding.getVar(), binding.getVar());
         const regexArray = urlRegex.exec(binding.getValue());
         if (regexArray == null) {
             temp[binding.getVar()] = {type:"literal",value: binding.getValue()};
@@ -48,7 +48,7 @@ function callback(val) {
         }
     }
     results.push(temp)
-    const response={head:{vars:headVars},results:{bindings:results}};
+    const response={head:{vars:Array.from(headVars.keys())},results:{bindings:results}};
     yasr.setResponse(response);
 }
 
@@ -59,7 +59,7 @@ const startRSP = () => {
         tboxElement.setAttribute('disabled', '');
 
         let abox = "";
-        let query = yasqe.getValue();
+        let query = yasqeRSP.getValue();
         document.getElementById("disableQueryRSP").style.display = "block";
 
         let width = windowWidthElement.value;
@@ -80,7 +80,7 @@ const startRSP = () => {
 const shareReasoning = () =>{
     let host = window.location.href.split('?')[0];
     let encodedRules = encodeURIComponent(tboxElement.value);
-    let encodedQuery = encodeURIComponent(yasqe.getValue());
+    let encodedQuery = encodeURIComponent(yasqeRSP.getValue());
     let encodedWindowWidth = encodeURIComponent(windowWidthElement.value);
     let encodedWindowSlide = encodeURIComponent(windowSlideElement.value);
     let encodedEventID = encodeURIComponent(eventIDElement.value);
