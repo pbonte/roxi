@@ -10,20 +10,24 @@ const reasoningShareButton = document.getElementById("shareReasoningR");
 abox.value = aboxInitialContents;
 tbox.value = tboxInitialContents;
 
+const tripleRegex = new RegExp(/((<[^>]*>)?|(.+:.+)?)(\ )+((<[^>]*>)?|(.*:.+)?)(\ )+((<[^>]*>)?|(".+"(\^\^<.+>)?)?|(.*:.+)?)(\ )*\./, "gm");
 const startReasoning = () => {
     const reasoner = RoxiReasoner.new();
 
-    let startTime = performance.now();
+    const startTime = performance.now();
 
     reasoner.add_abox(abox.value);
     reasoner.add_rules(tbox.value);
     reasoner.materialize();
 
-    let endTime = performance.now();
-    let difftime = endTime-startTime ;
+    const endTime = performance.now();
+    const difftime = endTime-startTime ;
 
-    document.getElementById('resultsR').value = reasoner.get_abox_dump();
+    const materializedTriples = reasoner.get_abox_dump();
+
+    document.getElementById('resultsR').value = materializedTriples;
     document.getElementById('timeResultsR').innerHTML = difftime + " ms";
+    document.getElementById('numberOfTriplesR').innerHTML = (materializedTriples.match(tripleRegex) || []).length.toString();
 };
 
 const shareReasoning = () =>{
