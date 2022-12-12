@@ -30,7 +30,14 @@ For example:
 ./target/release/server --abox examples/abox.ttl --tbox examples/rules.n3 
 ```
 
-## Using Roxi with Javascript/Typescript
+## Using RoXi with Javascript/Typescript from NPM in your Node project
+
+You can add find the Javascript bindings directly on [NPM](https://www.npmjs.com/package/roxi-js?activeTab=readme)
+`npm i roxi-js`
+
+See the examples below on how to use RoXi in JS mode
+
+## Building RoXi for Javascript/Typescript usage
 
 Make sure that you have `wasm-pack`, `cargo-generate` and `npm` installed. Instructions to install those can be found [here](https://rustwasm.github.io/book/game-of-life/setup.html).
 
@@ -63,6 +70,8 @@ Go to package.json of your project and add:
 ```
   "type": "module"
 ```
+
+## Examples of RoXi in JS/TS mode
 
 Example usage when using the static reasoner:
 
