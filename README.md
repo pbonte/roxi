@@ -11,6 +11,8 @@ RoXi uses some of the internals of [oxigraph](https://github.com/oxigraph/oxigra
 RoXi can be included as a library, run in server mode through CLI or in the browser using web assembly.
 You can try it out in your [own browser](https://pbonte.github.io/roxi/index.html)!
 
+RoXi supports datalog reasoning using [N3](https://w3c.github.io/N3/spec/) syntax. The whole N3 spec is currently not supported yet, but this is work in progress. Currently we support rules with plain datalog expressivity.
+
 ## RoXi Server
 
 How to build RoXi in server mode:
