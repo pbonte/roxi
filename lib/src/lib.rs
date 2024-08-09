@@ -18,6 +18,8 @@ pub mod sparql;
 pub mod dred;
 pub mod utils;
 pub mod rsp;
+mod service_composition;
+
 extern crate pest;
 #[macro_use]
 extern crate pest_derive;
@@ -124,6 +126,15 @@ impl TripleStore {
             let decoded_o = Encoder::decode(&triple.o.to_encoded()).unwrap();
 
             writeln!(&mut res, "{} {} {}.", decoded_s, decoded_p, decoded_o).unwrap();
+        }
+        res
+    }
+    pub fn decode_bindings(bindings: &Binding) -> String{
+        let mut res = String::new();
+        for (key,val) in bindings.iter(){
+            let decoded_values : String = val.iter().map(|t|Encoder::decode(t).unwrap()).collect();
+
+            writeln!(&mut res, " {}: [{}] .", Encoder::decode(key).unwrap(), decoded_values).unwrap();
         }
         res
     }

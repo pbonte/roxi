@@ -1,5 +1,10 @@
 use std::rc::Rc;
-use crate::{Binding, Rule, RuleIndex, Triple, TripleIndex, VarOrTerm, Encoder};
+use crate::{Binding, Rule, RuleIndex, Triple, TripleIndex, VarOrTerm, Encoder,TripleStore};
+#[cfg(not(test))]
+use log::{info, warn,trace, debug}; // Use log crate when building application
+
+#[cfg(test)]
+use std::{println as info, println as warn, println as trace, println as debug};
 
 pub struct BackwardChainer;
 
@@ -8,9 +13,14 @@ impl BackwardChainer {
         let sub_rules: Vec<(Rc<Rule>, Vec<(usize, usize)>)> = Self::find_subrules(rule_index, rule_head);
         let mut all_bindings = Binding::new();
         for (sub_rule, var_subs) in sub_rules.into_iter() {
+            debug!("Backchainging rule: {:?}",TripleStore::decode_rule(&sub_rule));
             let mut rule_bindings = Binding::new();
             for rule_atom in &sub_rule.body {
+                debug!("Matching body: {:?}",TripleStore::decode_triple(rule_atom));
+
                 if let Some(result_bindings) = triple_index.query(rule_atom, None) {
+                    debug!("   Found matching body: {:?}",TripleStore::decode_bindings(&result_bindings));
+
                     rule_bindings = rule_bindings.join(&result_bindings);
 
                 }

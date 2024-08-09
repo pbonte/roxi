@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::Iter;
 
 #[derive(Debug,  Clone, Eq, PartialEq)]
 pub struct Binding {
@@ -20,6 +21,9 @@ impl Binding  {
             return values.len();
         }
         0
+    }
+    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, usize, Vec<usize>> {
+        self.bindings.iter()
     }
     pub fn get(&self,key:&usize)->Option<&Vec<usize>>{
         self.bindings.get(key)
