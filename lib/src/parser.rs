@@ -103,8 +103,8 @@ impl Parser {
                 let head_triple = Self::parse_triple(head);
                 let mut body_triples = Vec::new();
                 for body_triple in body.split(".") {
-                    if body_triple.len() > 0 {
-                        body_triples.push(Self::parse_triple(body_triple));
+                    if body_triple.trim().len() > 0 {
+                        body_triples.push(Self::parse_triple(body_triple.trim()));
                     }
                 }
                 rules.push(Rule { head: head_triple, body: body_triples })
@@ -180,6 +180,15 @@ mod test{
     fn test_syntactic_sugar_rdf_type(){
         let ntriples_file = "<http://example2.com/a> a <http://www.test.be/test#SubClass> .";
         match Parser::parse_triples(ntriples_file,Syntax::Turtle){
+            Ok(result)=>assert_eq!(1, result.len()),
+            Err(err)=>assert_eq!(0, 1)
+        }
+
+    }
+    #[test]
+    fn test_white_space_in_rules(){
+        let rules = "{?source a test:Source. }=>{?source a test:NeededInput.}";
+        match Parser::parse_rules(rules){
             Ok(result)=>assert_eq!(1, result.len()),
             Err(err)=>assert_eq!(0, 1)
         }
