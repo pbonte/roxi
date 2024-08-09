@@ -5,11 +5,10 @@ use std::fmt::Error;
 use std::iter::empty;
 use std::rc::Rc;
 use std::sync::Mutex;
-use oxigraph::sparql::Variable;
 use spargebra::Query;
 use spargebra::Query::Select;
 use spargebra::algebra::*;
-use spargebra::term::TriplePattern;
+use spargebra::term::{TriplePattern, Variable};
 use crate::{Encoder, Parser, Syntax, TermImpl, Triple, TripleIndex, TripleStore, VarOrTerm};
 use crate::sparql::EncodedTerm::NamedNode;
 use crate::sparql::PlanNode::QuadPattern;
@@ -29,6 +28,7 @@ fn extract_triples(triple_patterns: &Vec<TriplePattern>, encoder: &mut Encoder)-
     }
     triples
 }
+
 #[derive(Debug)]
 pub enum PlanExpression{
     Constant(TermImpl),

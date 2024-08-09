@@ -9,13 +9,13 @@ deepmesa = "0.9.0"
 bencher = "0.1.5"
 log = { version = "0.4"}
 env_logger = "0.9.0"
-spargebra = "0.2.2"
+spargebra = "0.2.8"
+sparesults = "0.1.8"
 rio_api = "0.7.1"
 rio_turtle = "0.7.1"
 pest = "2.0"
 pest_derive = "2.0"
 either = "1.8.0"
-oxigraph = "0.3.6"
 once_cell = "1.16.0"
 
 
