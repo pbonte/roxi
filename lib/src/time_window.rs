@@ -1,10 +1,9 @@
 use std::cell::RefCell;
-use deepmesa::lists::LinkedList;
+use deepmesa_collections::LinkedList;
 use std::cmp;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
-use deepmesa::lists::linkedlist::Node;
 
 /// A consumer for retrieving new and expired data from the window
 pub trait TimeWindowConsumer<T>{

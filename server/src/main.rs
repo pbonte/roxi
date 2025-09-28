@@ -2,7 +2,7 @@ extern crate pest;
 #[macro_use]
 extern crate pest_derive;
 
-extern crate roxi;
+extern crate minimal as roxi;
 extern crate env_logger;
 
 use std::cell::RefCell;

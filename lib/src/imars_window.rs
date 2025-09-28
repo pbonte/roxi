@@ -1,11 +1,10 @@
 use std::cell::RefCell;
-use deepmesa::lists::LinkedList;
 use std::cmp;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
-use deepmesa::lists::linkedlist::Node;
-
+use deepmesa_collections::linkedlist::NodeHandle as Node;
+use deepmesa_collections::LinkedList;
 /// A consumer for retrieving new and expired data from the window
 pub trait WindowConsumer<T>{
     fn update(&mut self, new: Vec<(i32, Rc<T>)>, old: Vec<(i32, Rc<T>)>, ts: i32)-> Vec<(i32,T)>;

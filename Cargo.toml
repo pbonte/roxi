@@ -2,8 +2,7 @@
 
 members =[
 	"lib",
-	"server",
-	"js"
+	"server"
 ]
 [profile.bench]
 debug = true

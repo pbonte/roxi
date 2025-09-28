@@ -66,29 +66,29 @@ fn update_10000(bench: &mut Bencher) {
     start_update_test(bench,10000,10,100000);
 }
 
-fn pipeline(bench: &mut Bencher){
-    bench.iter(|| {
-        let mut window = TimeWindow::new(10, 5);
-
-        let mut data = "{?a in ?b.?b in ?c}=>{?a in ?c}\n".to_owned();
-        for i in 0..500{
-            data += format!(":{} in :{}.\n",i+1,i).as_str();
-        }
-
-
-
-        let mut reasoner = WindowReasoner::new();
-
-        let (mut content, mut rules) = Parser::parse(data.to_string(), &mut reasoner.store.encoder);
-        reasoner.store.add_rules(rules);
-        let mut consumer = Rc::new(RefCell::new(reasoner));
-        window.register_consumer(consumer.clone());
-
-
-        content.into_iter().enumerate().for_each(|(i, t)| window.add(t, i as i32));
-    });
-
-}
+// fn pipeline(bench: &mut Bencher){
+//     bench.iter(|| {
+//         let mut window = TimeWindow::new(10, 5);
+//
+//         let mut data = "{?a in ?b.?b in ?c}=>{?a in ?c}\n".to_owned();
+//         for i in 0..500{
+//             data += format!(":{} in :{}.\n",i+1,i).as_str();
+//         }
+//
+//
+//
+//         let mut reasoner = WindowReasoner::new();
+//
+//         let (mut content, mut rules) = Parser::parse(data.to_string(), &mut reasoner.store.encoder);
+//         reasoner.store.add_rules(rules);
+//         let mut consumer = Rc::new(RefCell::new(reasoner));
+//         window.register_consumer(consumer.clone());
+//
+//
+//         content.into_iter().enumerate().for_each(|(i, t)| window.add(t, i as i32));
+//     });
+//
+// }
 fn test_transitive_rule(bench: &mut Bencher){
     bench.iter(|| {
         let mut data = "{?a in ?b.?b in ?c}=>{?a in ?c}\n".to_owned();
